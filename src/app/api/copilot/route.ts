@@ -385,6 +385,35 @@ const tools: Anthropic.Tool[] = [
     },
   },
   {
+    name: "generate_risk_report",
+    description:
+      "Generate a risk assessment report summarizing the organization's risk posture. Use when the user asks for a risk report, risk summary, risk overview, or wants to understand their overall risk levels.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        format: {
+          type: "string",
+          enum: ["summary", "full"],
+          description: "summary = executive overview; full = complete risk register. Default: summary",
+        },
+      },
+    },
+  },
+  {
+    name: "generate_compliance_report",
+    description:
+      "Generate a compliance and audit readiness report showing framework progress, gaps, and evidence status. Use when the user asks for a compliance report, audit readiness, SOC 2 status, ISO 27001 progress, etc.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        framework: {
+          type: "string",
+          description: "Optional: focus on a specific framework code (e.g. 'SOC2', 'ISO27001'). Omit for all frameworks.",
+        },
+      },
+    },
+  },
+  {
     name: "send_slack_notification",
     description:
       "Send a notification to Slack. Use when the user wants to alert their team about a risk, compliance issue, or any GRC update.",
@@ -535,6 +564,123 @@ async function executeReadTool(
       }
     }
 
+    case "generate_risk_report": {
+      if (!organizationId || !admin) return { report: "No organization found." };
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: risks } = await (admin as any)
+          .from("risks")
+          .select("id, risk_id, title, inherent_likelihood, inherent_impact, residual_likelihood, residual_impact, status, risk_response")
+          .eq("organization_id", organizationId)
+          .order("inherent_likelihood", { ascending: false });
+
+        const riskList = risks || [];
+        const score = (r: { inherent_likelihood: number; inherent_impact: number }) => r.inherent_likelihood * r.inherent_impact;
+        const band = (s: number) => s >= 15 ? "🔴 Critical" : s >= 10 ? "🟠 High" : s >= 5 ? "🟡 Medium" : "🟢 Low";
+
+        const critical = riskList.filter((r: { inherent_likelihood: number; inherent_impact: number }) => score(r) >= 15).length;
+        const high = riskList.filter((r: { inherent_likelihood: number; inherent_impact: number }) => score(r) >= 10 && score(r) < 15).length;
+        const medium = riskList.filter((r: { inherent_likelihood: number; inherent_impact: number }) => score(r) >= 5 && score(r) < 10).length;
+        const low = riskList.filter((r: { inherent_likelihood: number; inherent_impact: number }) => score(r) < 5).length;
+
+        const full = (input.format || "summary") === "full";
+        let report = `## Risk Assessment Report\n\n`;
+        report += `**Total Risks:** ${riskList.length}  |  🔴 Critical: ${critical}  |  🟠 High: ${high}  |  🟡 Medium: ${medium}  |  🟢 Low: ${low}\n\n`;
+
+        if (full && riskList.length > 0) {
+          report += `### Risk Register\n\n| ID | Title | Score | Band | Status |\n|---|---|---|---|---|\n`;
+          for (const r of riskList.slice(0, 25)) {
+            const s = score(r);
+            const residual = (r.residual_likelihood ?? r.inherent_likelihood) * (r.residual_impact ?? r.inherent_impact);
+            report += `| ${r.risk_id || r.id.slice(0, 8)} | ${r.title} | ${s}→${residual} | ${band(s)} | ${r.status} |\n`;
+          }
+        } else if (riskList.length > 0) {
+          report += `### Top 5 Risks by Score\n\n`;
+          const top5 = [...riskList].sort((a: { inherent_likelihood: number; inherent_impact: number }, b: { inherent_likelihood: number; inherent_impact: number }) => score(b) - score(a)).slice(0, 5);
+          for (const r of top5) {
+            const s = score(r);
+            report += `- **${r.title}** — Score: ${s} ${band(s)} · Status: ${r.status}\n`;
+          }
+        } else {
+          report += "_No risks have been logged yet._\n";
+        }
+
+        report += `\n> 📊 For full visualizations including the risk heat map, go to **Reports → Risk Assessment Report** and click Generate.`;
+        return { report };
+      } catch {
+        return { report: "Failed to generate risk report." };
+      }
+    }
+
+    case "generate_compliance_report": {
+      if (!organizationId || !admin) return { report: "No organization found." };
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: org } = await (admin as any)
+          .from("organizations")
+          .select("settings")
+          .eq("id", organizationId)
+          .single();
+
+        const requirementStatuses: Record<string, string> = org?.settings?.requirement_statuses || {};
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: frameworks } = await (supabase as any)
+          .from("compliance_frameworks")
+          .select("code, name, structure")
+          .eq("is_active", true);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: evidence } = await (admin as any)
+          .from("evidence")
+          .select("id, status, valid_to")
+          .eq("organization_id", organizationId);
+
+        const evidenceList = evidence || [];
+        const now = new Date();
+        const expiredCount = evidenceList.filter((e: { valid_to?: string }) => e.valid_to && new Date(e.valid_to) < now).length;
+
+        let report = `## Compliance & Audit Readiness Report\n\n`;
+
+        const filterCode = (input.framework as string | undefined)?.toUpperCase();
+        const fwList = (frameworks || []).filter((fw: { code: string }) => !filterCode || fw.code === filterCode);
+
+        if (fwList.length === 0) {
+          report += "_No active compliance frameworks found. Add frameworks from the Frameworks page._\n";
+        }
+
+        for (const fw of fwList) {
+          const domains = fw.structure?.domains || [];
+          let total = 0, implemented = 0, inProgress = 0, notStarted = 0;
+          for (const domain of domains) {
+            for (const req of (domain.requirements || [])) {
+              total++;
+              const key = `${fw.code}:${req.id}`;
+              const st = requirementStatuses[key] || "not_started";
+              if (st === "implemented") implemented++;
+              else if (st === "partial" || st === "in-progress" || st === "in_progress") inProgress++;
+              else if (st !== "not-applicable" && st !== "n/a") notStarted++;
+            }
+          }
+          const applicable = total - (total - implemented - inProgress - notStarted);
+          const progress = applicable > 0 ? Math.round((implemented / applicable) * 100) : 0;
+          const bar = "█".repeat(Math.round(progress / 10)) + "░".repeat(10 - Math.round(progress / 10));
+
+          report += `### ${fw.name}\n\`${bar}\` **${progress}%** ready\n`;
+          report += `- ✅ Implemented: ${implemented}  |  🔄 In Progress: ${inProgress}  |  ❌ Not Started: ${notStarted}  |  Total: ${total}\n\n`;
+        }
+
+        report += `### Evidence Summary\n`;
+        report += `- Total: ${evidenceList.length}  |  Validated: ${evidenceList.filter((e: { status: string }) => e.status === "validated").length}  |  Pending: ${evidenceList.filter((e: { status: string }) => e.status === "pending").length}`;
+        if (expiredCount > 0) report += `  |  ⚠️ Expired: ${expiredCount}`;
+        report += `\n\n> 📋 For the full gap analysis with domain breakdown, go to **Reports → Compliance & Audit Report** and click Generate.`;
+
+        return { report };
+      } catch {
+        return { report: "Failed to generate compliance report." };
+      }
+    }
+
     case "list_integrations": {
       if (!organizationId || !admin) return { integrations: [], message: "No organization found" };
       try {
@@ -646,7 +792,8 @@ export async function POST(request: NextRequest) {
 
       for (const toolUse of toolUseBlocks) {
         const WRITE_TOOLS = ["create_risk", "create_control", "create_framework", "update_requirement_status", "create_requirement", "link_risk_to_control", "create_evidence", "connect_integration", "import_github_alerts", "create_jira_issue", "send_slack_notification"];
-        if (WRITE_TOOLS.includes(toolUse.name)) {
+        const READ_TOOLS = ["search_risks", "get_compliance_status", "search_controls", "list_integrations", "generate_risk_report", "generate_compliance_report"];
+        if (WRITE_TOOLS.includes(toolUse.name) && !READ_TOOLS.includes(toolUse.name)) {
           // Write tool — queue for user approval
           pendingActions.push({
             id: toolUse.id,

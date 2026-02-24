@@ -13,6 +13,7 @@ const navigation = [
   { name: "Evidence", href: "/dashboard/evidence", icon: "📁" },
   { name: "Frameworks", href: "/dashboard/frameworks", icon: "📋" },
   { name: "Integrations", href: "/dashboard/integrations", icon: "🔌" },
+  { name: "Reports", href: "/dashboard/reports", icon: "📈" },
   { name: "Audit Log", href: "/dashboard/audit-log", icon: "🔒" },
   { name: "Settings", href: "/dashboard/settings", icon: "⚙️" },
 ];
