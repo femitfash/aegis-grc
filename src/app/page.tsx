@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ContactButton } from "./contact-button";
 import {
   Shield,
   MessageSquare,
@@ -569,28 +570,34 @@ export default function Home() {
 
       {/* ─── Pricing ─────────────────────────────────────────── */}
       <section id="pricing" className="bg-muted/20 px-6 py-24">
-        <div className="mx-auto max-w-4xl text-center">
+        <div className="mx-auto max-w-6xl text-center">
           <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
-            Start free, scale as you grow
+            Compliance through conversation.
           </h2>
-          <p className="mb-12 text-muted-foreground">
-            No credit card required. No sales call. No implementation fee.
+          <p className="mb-2 text-muted-foreground">
+            Not forms. Not spreadsheets. Not $75k contracts.
+          </p>
+          <p className="mb-12 text-sm text-muted-foreground">
+            No credit card required to start.
           </p>
 
-          <div className="grid gap-8 md:grid-cols-2">
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* BUILDER */}
             <div className="rounded-xl border border-border bg-card p-8 text-left">
-              <div className="mb-2 font-bold text-lg">Free Tier</div>
-              <div className="mb-6 text-4xl font-extrabold">$0</div>
-              <ul className="mb-8 space-y-3 text-sm text-muted-foreground">
+              <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Builder</div>
+              <div className="mb-1 text-3xl font-bold">$0</div>
+              <div className="mb-6 text-sm text-muted-foreground">1 contributor · forever free</div>
+              <ul className="mb-8 space-y-2.5 text-sm text-muted-foreground">
                 {[
-                  "10 free AI actions (risks, controls, frameworks)",
-                  "Unlimited manual entries",
-                  "All compliance frameworks",
+                  "1 compliance framework",
+                  "10 AI copilot sessions / month",
+                  "Risk register & control library",
                   "Immutable audit trail",
-                  "1 organization",
+                  "Watermarked report exports",
+                  "Community support",
                 ].map((item) => (
                   <li key={item} className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <CheckCircle className="h-4 w-4 shrink-0 text-green-500" />
                     {item}
                   </li>
                 ))}
@@ -603,20 +610,25 @@ export default function Home() {
               </Link>
             </div>
 
-            <div className="rounded-xl border border-primary/40 bg-primary/5 p-8 text-left">
-              <div className="mb-2 font-bold text-lg">BYOK — Unlimited</div>
-              <div className="mb-1 text-4xl font-extrabold">Your cost</div>
-              <div className="mb-6 text-sm text-muted-foreground">~$0.003 per AI action via Claude API</div>
-              <ul className="mb-8 space-y-3 text-sm text-muted-foreground">
+            {/* GROWTH */}
+            <div className="relative rounded-xl border-2 border-primary bg-card p-8 text-left shadow-lg">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-0.5 text-xs font-semibold text-primary-foreground">
+                Most popular
+              </div>
+              <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Growth</div>
+              <div className="mb-1 text-3xl font-bold">$49</div>
+              <div className="mb-6 text-sm text-muted-foreground">per contributor / month · min $245/mo</div>
+              <ul className="mb-8 space-y-2.5 text-sm text-muted-foreground">
                 {[
-                  "Unlimited AI actions",
-                  "Use your own Anthropic API key",
-                  "Direct API pricing — no markup",
-                  "Everything in Free tier",
-                  "Priority support",
+                  "Unlimited AI copilot sessions",
+                  "All compliance frameworks",
+                  "Multi-framework gap analysis",
+                  "Slack & Jira integration",
+                  "Audit-ready report exports",
+                  "Email support (1 business day)",
                 ].map((item) => (
                   <li key={item} className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-primary" />
+                    <CheckCircle className="h-4 w-4 shrink-0 text-primary" />
                     {item}
                   </li>
                 ))}
@@ -625,8 +637,34 @@ export default function Home() {
                 href="/register"
                 className="block w-full rounded-md bg-primary py-2.5 text-center text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
               >
-                Start free, add your key later
+                Start free trial
               </Link>
+            </div>
+
+            {/* ENTERPRISE */}
+            <div className="rounded-xl border border-border bg-card p-8 text-left">
+              <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Enterprise</div>
+              <div className="mb-1 text-3xl font-bold">Custom</div>
+              <div className="mb-6 text-sm text-muted-foreground">volume pricing · annual contracts</div>
+              <ul className="mb-8 space-y-2.5 text-sm text-muted-foreground">
+                {[
+                  "Everything in Growth",
+                  "SSO (SAML / OIDC)",
+                  "Vendor & third-party risk module",
+                  "API access & webhooks",
+                  "Custom frameworks & controls",
+                  "Dedicated success manager",
+                ].map((item) => (
+                  <li key={item} className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 shrink-0 text-green-500" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <ContactButton
+                label="Talk to Sales"
+                className="block w-full rounded-md border border-input bg-background py-2.5 text-center text-sm font-semibold transition-colors hover:bg-accent"
+              />
             </div>
           </div>
         </div>
