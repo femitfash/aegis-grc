@@ -445,6 +445,132 @@ const tools: Anthropic.Tool[] = [
       required: ["message"],
     },
   },
+  {
+    name: "list_policies",
+    description:
+      "List all policies in the organization's policy register. Use when the user asks about policies, policy coverage, review schedules, or wants to see their policy library.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        status: {
+          type: "string",
+          enum: ["draft", "active", "archived"],
+          description: "Optional: filter by policy status",
+        },
+        category: {
+          type: "string",
+          description: "Optional: filter by policy category (e.g. 'Information Security')",
+        },
+      },
+    },
+  },
+  {
+    name: "list_vendors",
+    description:
+      "List all vendors and third-party suppliers in the vendor register. Use when the user asks about vendors, vendor risk, supplier management, or third-party risk.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        tier: {
+          type: "string",
+          enum: ["critical", "high", "medium", "low"],
+          description: "Optional: filter by risk tier",
+        },
+      },
+    },
+  },
+  {
+    name: "list_incidents",
+    description:
+      "List security incidents. Use when the user asks about incidents, current open incidents, incident status, or wants a summary of recent security events.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        status: {
+          type: "string",
+          enum: ["detected", "contained", "resolved", "post_mortem", "closed"],
+          description: "Optional: filter by incident status",
+        },
+        severity: {
+          type: "string",
+          enum: ["critical", "high", "medium", "low"],
+          description: "Optional: filter by severity",
+        },
+      },
+    },
+  },
+  {
+    name: "create_policy",
+    description:
+      "Create a new policy document in the policy register. Use when the user wants to add a new security or compliance policy.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        title: { type: "string", description: "Policy title (e.g., 'Password Management Policy')" },
+        category: {
+          type: "string",
+          enum: [
+            "Information Security", "Access Control", "Data Protection",
+            "Business Continuity", "Risk Management", "HR & Personnel",
+            "Physical Security", "Incident Response", "Acceptable Use",
+          ],
+          description: "Policy category — infer from context",
+        },
+        description: { type: "string", description: "What the policy covers and its purpose" },
+        status: { type: "string", enum: ["draft", "active"], description: "Initial status (default: draft)" },
+        version: { type: "string", description: "Policy version (default: 1.0)" },
+        effective_date: { type: "string", description: "ISO date when the policy takes effect" },
+        review_date: { type: "string", description: "ISO date for next scheduled review" },
+        attestation_required: { type: "boolean", description: "Whether staff must attest to this policy" },
+      },
+      required: ["title"],
+    },
+  },
+  {
+    name: "create_vendor",
+    description:
+      "Add a new vendor or third-party supplier to the vendor register. Use when the user wants to track a new supplier or service provider.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        name: { type: "string", description: "Vendor name" },
+        category: { type: "string", description: "Vendor category (e.g., 'Cloud Infrastructure', 'SaaS')" },
+        tier: {
+          type: "string",
+          enum: ["critical", "high", "medium", "low"],
+          description: "Risk tier — critical = essential to operations",
+        },
+        risk_score: { type: "integer", minimum: 1, maximum: 25, description: "Risk score 1-25 (infer from tier if not given)" },
+        contact_name: { type: "string", description: "Primary contact name" },
+        contact_email: { type: "string", description: "Primary contact email" },
+        website: { type: "string", description: "Vendor website URL" },
+        contract_expiry: { type: "string", description: "ISO date of contract expiry" },
+        notes: { type: "string", description: "Additional notes about the vendor relationship" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "create_incident",
+    description:
+      "Log a new security incident. Use when the user reports an incident, breach, anomaly, or security event that needs to be tracked.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        title: { type: "string", description: "Concise incident title" },
+        description: { type: "string", description: "Full description of what happened" },
+        severity: {
+          type: "string",
+          enum: ["critical", "high", "medium", "low"],
+          description: "Severity — infer from impact described",
+        },
+        impact: { type: "string", description: "Business/operational impact" },
+        affected_systems: { type: "string", description: "Systems or services affected" },
+        discovered_at: { type: "string", description: "ISO datetime when the incident was discovered (default: now)" },
+      },
+      required: ["title", "severity"],
+    },
+  },
 ];
 
 // Execute read-only tools server-side
@@ -697,6 +823,59 @@ async function executeReadTool(
       }
     }
 
+    case "list_policies": {
+      if (!organizationId || !admin) return { policies: [], message: "No organization found" };
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let query = (admin as any)
+          .from("policies")
+          .select("id, policy_id, title, category, status, version, review_date, attestation_required")
+          .eq("organization_id", organizationId)
+          .order("title");
+        if (input.status) query = query.eq("status", input.status);
+        if (input.category) query = query.eq("category", input.category);
+        const { data } = await query;
+        return { policies: data || [], count: (data || []).length };
+      } catch {
+        return { policies: [], message: "Failed to list policies" };
+      }
+    }
+
+    case "list_vendors": {
+      if (!organizationId || !admin) return { vendors: [], message: "No organization found" };
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let query = (admin as any)
+          .from("vendors")
+          .select("id, name, category, tier, status, risk_score, contract_expiry, last_assessed_at")
+          .eq("organization_id", organizationId)
+          .order("risk_score", { ascending: false });
+        if (input.tier) query = query.eq("tier", input.tier);
+        const { data } = await query;
+        return { vendors: data || [], count: (data || []).length };
+      } catch {
+        return { vendors: [], message: "Failed to list vendors" };
+      }
+    }
+
+    case "list_incidents": {
+      if (!organizationId || !admin) return { incidents: [], message: "No organization found" };
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let query = (admin as any)
+          .from("incidents")
+          .select("id, incident_id, title, severity, status, discovered_at, resolved_at")
+          .eq("organization_id", organizationId)
+          .order("discovered_at", { ascending: false });
+        if (input.status) query = query.eq("status", input.status);
+        if (input.severity) query = query.eq("severity", input.severity);
+        const { data } = await query;
+        return { incidents: data || [], count: (data || []).length };
+      } catch {
+        return { incidents: [], message: "Failed to list incidents" };
+      }
+    }
+
     default:
       return { error: "Unknown tool" };
   }
@@ -791,8 +970,8 @@ export async function POST(request: NextRequest) {
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
       for (const toolUse of toolUseBlocks) {
-        const WRITE_TOOLS = ["create_risk", "create_control", "create_framework", "update_requirement_status", "create_requirement", "link_risk_to_control", "create_evidence", "connect_integration", "import_github_alerts", "create_jira_issue", "send_slack_notification"];
-        const READ_TOOLS = ["search_risks", "get_compliance_status", "search_controls", "list_integrations", "generate_risk_report", "generate_compliance_report"];
+        const WRITE_TOOLS = ["create_risk", "create_control", "create_framework", "update_requirement_status", "create_requirement", "link_risk_to_control", "create_evidence", "connect_integration", "import_github_alerts", "create_jira_issue", "send_slack_notification", "create_policy", "create_vendor", "create_incident"];
+        const READ_TOOLS = ["search_risks", "get_compliance_status", "search_controls", "list_integrations", "generate_risk_report", "generate_compliance_report", "list_policies", "list_vendors", "list_incidents"];
         if (WRITE_TOOLS.includes(toolUse.name) && !READ_TOOLS.includes(toolUse.name)) {
           // Write tool — queue for user approval
           pendingActions.push({
@@ -809,6 +988,9 @@ export async function POST(request: NextRequest) {
             toolUse.name === "import_github_alerts" ? "GitHub alert import" :
             toolUse.name === "create_jira_issue" ? "Jira issue" :
             toolUse.name === "send_slack_notification" ? "Slack notification" :
+            toolUse.name === "create_policy" ? "policy" :
+            toolUse.name === "create_vendor" ? "vendor" :
+            toolUse.name === "create_incident" ? "incident" :
             "framework";
           toolResults.push({
             type: "tool_result",

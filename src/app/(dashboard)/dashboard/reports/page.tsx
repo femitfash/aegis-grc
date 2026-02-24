@@ -60,6 +60,133 @@ interface ComplianceReportData {
   };
 }
 
+interface PolicyReportData {
+  organization_name: string;
+  generated_at: string;
+  stats: {
+    total: number;
+    by_status: { draft: number; active: number; archived: number };
+    overdue_review: number;
+    review_due_30d: number;
+    review_due_90d: number;
+    attestation_required: number;
+  };
+  by_category: Array<{ category: string; count: number }>;
+  upcoming_reviews: Array<{
+    id: string;
+    policy_id: string;
+    title: string;
+    category: string;
+    status: string;
+    review_date: string;
+    owner_name?: string;
+  }>;
+  policies: Array<{
+    id: string;
+    policy_id: string;
+    title: string;
+    category: string;
+    status: string;
+    version: string;
+    effective_date?: string;
+    review_date?: string;
+    attestation_required: boolean;
+    owner_name?: string;
+  }>;
+}
+
+interface VendorRiskReportData {
+  organization_name: string;
+  generated_at: string;
+  stats: {
+    total: number;
+    by_tier: { critical: number; high: number; medium: number; low: number };
+    by_status: { active: number; under_review: number; approved: number; suspended: number };
+    avg_risk_score: number;
+    contracts_expiring_90d: number;
+    contracts_expired: number;
+    never_assessed: number;
+  };
+  high_risk_vendors: Array<{
+    id: string;
+    name: string;
+    category: string;
+    tier: string;
+    risk_score: number;
+    status: string;
+    contract_expiry?: string;
+    last_assessed_at?: string;
+  }>;
+  expiring_contracts: Array<{
+    id: string;
+    name: string;
+    tier: string;
+    contract_expiry: string;
+    risk_score: number;
+  }>;
+  vendors: Array<{
+    id: string;
+    name: string;
+    category: string;
+    tier: string;
+    status: string;
+    risk_score: number;
+    contract_expiry?: string;
+    last_assessed_at?: string;
+    contact_name?: string;
+    contact_email?: string;
+  }>;
+}
+
+interface IncidentReportData {
+  organization_name: string;
+  generated_at: string;
+  stats: {
+    total: number;
+    open: number;
+    resolved: number;
+    by_severity: { critical: number; high: number; medium: number; low: number };
+    by_status: {
+      detected: number;
+      contained: number;
+      resolved: number;
+      post_mortem: number;
+      closed: number;
+    };
+    mttr_hours: number | null;
+    critical_open: number;
+  };
+  open_incidents: Array<{
+    id: string;
+    incident_id: string;
+    title: string;
+    severity: string;
+    status: string;
+    discovered_at: string;
+    contained_at?: string;
+    impact?: string;
+    owner_name?: string;
+  }>;
+  recent_resolved: Array<{
+    id: string;
+    incident_id: string;
+    title: string;
+    severity: string;
+    discovered_at: string;
+    resolved_at?: string;
+  }>;
+  incidents: Array<{
+    id: string;
+    incident_id: string;
+    title: string;
+    severity: string;
+    status: string;
+    discovered_at: string;
+    resolved_at?: string;
+    impact?: string;
+  }>;
+}
+
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
 function bandColor(band: string) {
@@ -498,14 +625,544 @@ function ComplianceReport({ data }: { data: ComplianceReportData }) {
   );
 }
 
+// ─── Policy Report ────────────────────────────────────────────────────────────
+
+function policyStatusColor(status: string) {
+  if (status === "active") return "bg-green-100 text-green-700";
+  if (status === "draft") return "bg-yellow-100 text-yellow-700";
+  return "bg-muted text-muted-foreground";
+}
+
+function PolicyReport({ data }: { data: PolicyReportData }) {
+  const { stats } = data;
+  return (
+    <div className="space-y-8 print:space-y-6">
+      {/* Header */}
+      <div className="border-b pb-4 print:pb-2">
+        <h1 className="text-2xl font-bold">Policy &amp; Procedure Report</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          {data.organization_name} · Generated {fmtDate(data.generated_at)}
+        </p>
+      </div>
+
+      {/* Stats */}
+      <section>
+        <h2 className="text-base font-semibold mb-3">Executive Summary</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Total Policies", value: stats.total },
+            { label: "Active", value: stats.by_status.active, cls: "text-green-600 font-bold" },
+            { label: "Overdue Review", value: stats.overdue_review, cls: stats.overdue_review > 0 ? "text-red-600 font-bold" : "" },
+            { label: "Require Attestation", value: stats.attestation_required, cls: "text-yellow-600 font-bold" },
+          ].map(({ label, value, cls }) => (
+            <div key={label} className="rounded-lg border bg-card p-3 text-center">
+              <div className={`text-2xl font-bold ${cls ?? ""}`}>{value}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-sm">
+          {[
+            { label: "Draft", value: stats.by_status.draft, cls: "bg-yellow-100 text-yellow-700" },
+            { label: "Active", value: stats.by_status.active, cls: "bg-green-100 text-green-700" },
+            { label: "Archived", value: stats.by_status.archived, cls: "bg-muted text-muted-foreground" },
+            { label: "Review due 30d", value: stats.review_due_30d, cls: "bg-orange-100 text-orange-700" },
+            { label: "Review due 90d", value: stats.review_due_90d, cls: "bg-yellow-100 text-yellow-700" },
+          ].map(({ label, value, cls }) => (
+            <span key={label} className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium ${cls}`}>
+              {label}: <strong>{value}</strong>
+            </span>
+          ))}
+        </div>
+      </section>
+
+      {/* By Category */}
+      {data.by_category.length > 0 && (
+        <section>
+          <h2 className="text-base font-semibold mb-3">Coverage by Category</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {data.by_category.map(({ category, count }) => (
+              <div key={category} className="rounded border bg-muted/30 px-3 py-2 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">{category}</span>
+                <span className="font-semibold ml-2">{count}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Upcoming Reviews */}
+      {data.upcoming_reviews.length > 0 && (
+        <section>
+          <h2 className="text-base font-semibold mb-3">Upcoming Reviews (next 90 days)</h2>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-3 font-medium">Policy</th>
+                  <th className="text-left p-3 font-medium">Category</th>
+                  <th className="text-left p-3 font-medium">Status</th>
+                  <th className="text-left p-3 font-medium">Review Date</th>
+                  <th className="text-left p-3 font-medium">Owner</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.upcoming_reviews.map((p, i) => {
+                  const daysUntil = Math.ceil((new Date(p.review_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                  return (
+                    <tr key={p.id} className={i % 2 === 0 ? "" : "bg-muted/20"}>
+                      <td className="p-3 font-medium">{p.title}</td>
+                      <td className="p-3 text-muted-foreground text-xs">{p.category}</td>
+                      <td className="p-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${policyStatusColor(p.status)}`}>
+                          {p.status}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span className={daysUntil < 0 ? "text-red-600 font-semibold" : daysUntil <= 30 ? "text-orange-600 font-semibold" : "text-muted-foreground"}>
+                          {fmtDate(p.review_date)}
+                          {daysUntil < 0 ? " (overdue)" : daysUntil <= 30 ? ` (${daysUntil}d)` : ""}
+                        </span>
+                      </td>
+                      <td className="p-3 text-muted-foreground text-xs">{p.owner_name || "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* Full Policy Register */}
+      <section>
+        <h2 className="text-base font-semibold mb-3">Policy Register ({data.policies.length})</h2>
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="text-left p-3 font-medium">ID</th>
+                <th className="text-left p-3 font-medium">Title</th>
+                <th className="text-left p-3 font-medium">Category</th>
+                <th className="text-left p-3 font-medium">Status</th>
+                <th className="text-left p-3 font-medium">Version</th>
+                <th className="text-left p-3 font-medium">Review Date</th>
+                <th className="text-center p-3 font-medium">Attestation</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.policies.map((p, i) => (
+                <tr key={p.id} className={i % 2 === 0 ? "" : "bg-muted/20"}>
+                  <td className="p-3 font-mono text-xs text-muted-foreground">{p.policy_id}</td>
+                  <td className="p-3 font-medium max-w-[200px] truncate" title={p.title}>{p.title}</td>
+                  <td className="p-3 text-muted-foreground text-xs">{p.category}</td>
+                  <td className="p-3">
+                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${policyStatusColor(p.status)}`}>
+                      {p.status}
+                    </span>
+                  </td>
+                  <td className="p-3 font-mono text-xs text-muted-foreground">v{p.version}</td>
+                  <td className="p-3 text-xs text-muted-foreground">
+                    {p.review_date ? fmtDate(p.review_date) : "—"}
+                  </td>
+                  <td className="p-3 text-center text-xs">
+                    {p.attestation_required ? (
+                      <span className="text-yellow-600 font-semibold">Yes</span>
+                    ) : (
+                      <span className="text-muted-foreground">No</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ─── Vendor Risk Report ───────────────────────────────────────────────────────
+
+function tierColor(tier: string) {
+  if (tier === "critical") return "bg-red-100 text-red-700";
+  if (tier === "high") return "bg-orange-100 text-orange-700";
+  if (tier === "medium") return "bg-yellow-100 text-yellow-700";
+  return "bg-green-100 text-green-700";
+}
+
+function VendorRiskReport({ data }: { data: VendorRiskReportData }) {
+  const { stats } = data;
+  return (
+    <div className="space-y-8 print:space-y-6">
+      {/* Header */}
+      <div className="border-b pb-4 print:pb-2">
+        <h1 className="text-2xl font-bold">Vendor / Third-Party Risk Report</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          {data.organization_name} · Generated {fmtDate(data.generated_at)}
+        </p>
+      </div>
+
+      {/* Stats */}
+      <section>
+        <h2 className="text-base font-semibold mb-3">Executive Summary</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Total Vendors", value: stats.total },
+            { label: "Critical Tier", value: stats.by_tier.critical, cls: stats.by_tier.critical > 0 ? "text-red-600 font-bold" : "" },
+            { label: "Avg Risk Score", value: stats.avg_risk_score, cls: stats.avg_risk_score >= 15 ? "text-red-600 font-bold" : stats.avg_risk_score >= 10 ? "text-orange-600 font-bold" : "" },
+            { label: "Contracts Expiring (90d)", value: stats.contracts_expiring_90d, cls: stats.contracts_expiring_90d > 0 ? "text-orange-600 font-bold" : "" },
+          ].map(({ label, value, cls }) => (
+            <div key={label} className="rounded-lg border bg-card p-3 text-center">
+              <div className={`text-2xl font-bold ${cls ?? ""}`}>{value}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-sm">
+          {[
+            { label: "Critical", value: stats.by_tier.critical, cls: "bg-red-100 text-red-700" },
+            { label: "High", value: stats.by_tier.high, cls: "bg-orange-100 text-orange-700" },
+            { label: "Medium", value: stats.by_tier.medium, cls: "bg-yellow-100 text-yellow-700" },
+            { label: "Low", value: stats.by_tier.low, cls: "bg-green-100 text-green-700" },
+            { label: "Never Assessed", value: stats.never_assessed, cls: "bg-muted text-muted-foreground" },
+            { label: "Expired Contracts", value: stats.contracts_expired, cls: stats.contracts_expired > 0 ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground" },
+          ].map(({ label, value, cls }) => (
+            <span key={label} className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium ${cls}`}>
+              {label}: <strong>{value}</strong>
+            </span>
+          ))}
+        </div>
+      </section>
+
+      {/* High & Critical Risk Vendors */}
+      {data.high_risk_vendors.length > 0 && (
+        <section>
+          <h2 className="text-base font-semibold mb-3">High &amp; Critical Risk Vendors</h2>
+          <div className="space-y-2">
+            {data.high_risk_vendors.map((v) => (
+              <div key={v.id} className={`rounded-lg border-l-4 p-4 bg-card ${v.tier === "critical" ? "border-red-400" : "border-orange-400"}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-semibold">{v.name}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">{v.category}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${tierColor(v.tier)}`}>
+                      {v.tier}
+                    </span>
+                    <span className="text-sm font-mono font-bold">
+                      Score: {v.risk_score}/25
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-1 flex gap-4 text-xs text-muted-foreground">
+                  {v.contract_expiry && (
+                    <span>Contract: {fmtDate(v.contract_expiry)}</span>
+                  )}
+                  {v.last_assessed_at ? (
+                    <span>Last assessed: {fmtDate(v.last_assessed_at)}</span>
+                  ) : (
+                    <span className="text-orange-600">Never assessed</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Expiring Contracts */}
+      {data.expiring_contracts.length > 0 && (
+        <section>
+          <h2 className="text-base font-semibold mb-3">Contracts Expiring (next 90 days)</h2>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-3 font-medium">Vendor</th>
+                  <th className="text-left p-3 font-medium">Tier</th>
+                  <th className="text-left p-3 font-medium">Expiry Date</th>
+                  <th className="text-left p-3 font-medium">Risk Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.expiring_contracts.map((v, i) => {
+                  const daysUntil = Math.ceil((new Date(v.contract_expiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                  return (
+                    <tr key={v.id} className={i % 2 === 0 ? "" : "bg-muted/20"}>
+                      <td className="p-3 font-medium">{v.name}</td>
+                      <td className="p-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${tierColor(v.tier)}`}>
+                          {v.tier}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span className={daysUntil < 0 ? "text-red-600 font-semibold" : daysUntil <= 30 ? "text-orange-600 font-semibold" : "text-yellow-600"}>
+                          {fmtDate(v.contract_expiry)}
+                          {daysUntil < 0 ? " (expired)" : ` (${daysUntil}d)`}
+                        </span>
+                      </td>
+                      <td className="p-3 font-mono">{v.risk_score}/25</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* Full Vendor Register */}
+      <section>
+        <h2 className="text-base font-semibold mb-3">Vendor Register ({data.vendors.length})</h2>
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="text-left p-3 font-medium">Name</th>
+                <th className="text-left p-3 font-medium">Category</th>
+                <th className="text-left p-3 font-medium">Tier</th>
+                <th className="text-left p-3 font-medium">Status</th>
+                <th className="text-center p-3 font-medium">Risk</th>
+                <th className="text-left p-3 font-medium">Contract Expiry</th>
+                <th className="text-left p-3 font-medium">Last Assessed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.vendors.map((v, i) => (
+                <tr key={v.id} className={i % 2 === 0 ? "" : "bg-muted/20"}>
+                  <td className="p-3 font-medium">{v.name}</td>
+                  <td className="p-3 text-muted-foreground text-xs">{v.category}</td>
+                  <td className="p-3">
+                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${tierColor(v.tier)}`}>
+                      {v.tier}
+                    </span>
+                  </td>
+                  <td className="p-3 capitalize text-xs text-muted-foreground">{v.status.replace("_", " ")}</td>
+                  <td className="p-3 text-center font-mono text-sm">{v.risk_score}/25</td>
+                  <td className="p-3 text-xs text-muted-foreground">
+                    {v.contract_expiry ? fmtDate(v.contract_expiry) : "—"}
+                  </td>
+                  <td className="p-3 text-xs text-muted-foreground">
+                    {v.last_assessed_at ? fmtDate(v.last_assessed_at) : <span className="text-orange-500">Never</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ─── Incident Report ──────────────────────────────────────────────────────────
+
+function severityColor(severity: string) {
+  if (severity === "critical") return "bg-red-500 text-white";
+  if (severity === "high") return "bg-orange-500 text-white";
+  if (severity === "medium") return "bg-yellow-400 text-black";
+  return "bg-green-500 text-white";
+}
+
+function incidentStatusColor(status: string) {
+  if (status === "detected") return "bg-red-100 text-red-700";
+  if (status === "contained") return "bg-yellow-100 text-yellow-700";
+  if (status === "resolved") return "bg-green-100 text-green-700";
+  if (status === "post_mortem") return "bg-blue-100 text-blue-700";
+  return "bg-muted text-muted-foreground";
+}
+
+function IncidentReport({ data }: { data: IncidentReportData }) {
+  const { stats } = data;
+  return (
+    <div className="space-y-8 print:space-y-6">
+      {/* Header */}
+      <div className="border-b pb-4 print:pb-2">
+        <h1 className="text-2xl font-bold">Incident Management Report</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          {data.organization_name} · Generated {fmtDate(data.generated_at)}
+        </p>
+      </div>
+
+      {/* Stats */}
+      <section>
+        <h2 className="text-base font-semibold mb-3">Executive Summary</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Total Incidents", value: stats.total },
+            { label: "Open", value: stats.open, cls: stats.open > 0 ? "text-orange-600 font-bold" : "" },
+            { label: "Critical Open", value: stats.critical_open, cls: stats.critical_open > 0 ? "text-red-600 font-bold" : "" },
+            {
+              label: "Avg MTTR",
+              value: stats.mttr_hours != null
+                ? stats.mttr_hours < 24 ? `${stats.mttr_hours}h` : `${Math.round(stats.mttr_hours / 24)}d`
+                : "—",
+              cls: "",
+            },
+          ].map(({ label, value, cls }) => (
+            <div key={label} className="rounded-lg border bg-card p-3 text-center">
+              <div className={`text-2xl font-bold ${cls ?? ""}`}>{value}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-sm">
+          {[
+            { label: "Critical", value: stats.by_severity.critical, cls: "bg-red-100 text-red-700" },
+            { label: "High", value: stats.by_severity.high, cls: "bg-orange-100 text-orange-700" },
+            { label: "Medium", value: stats.by_severity.medium, cls: "bg-yellow-100 text-yellow-700" },
+            { label: "Low", value: stats.by_severity.low, cls: "bg-green-100 text-green-700" },
+            { label: "Resolved", value: stats.resolved, cls: "bg-green-100 text-green-700" },
+          ].map(({ label, value, cls }) => (
+            <span key={label} className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium ${cls}`}>
+              {label}: <strong>{value}</strong>
+            </span>
+          ))}
+        </div>
+      </section>
+
+      {/* Open Incidents */}
+      {data.open_incidents.length > 0 && (
+        <section>
+          <h2 className="text-base font-semibold mb-3">Open Incidents ({data.open_incidents.length})</h2>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-3 font-medium">ID</th>
+                  <th className="text-left p-3 font-medium">Title</th>
+                  <th className="text-left p-3 font-medium">Severity</th>
+                  <th className="text-left p-3 font-medium">Status</th>
+                  <th className="text-left p-3 font-medium">Discovered</th>
+                  <th className="text-left p-3 font-medium">Owner</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.open_incidents.map((inc, i) => (
+                  <tr key={inc.id} className={i % 2 === 0 ? "" : "bg-muted/20"}>
+                    <td className="p-3 font-mono text-xs text-muted-foreground">{inc.incident_id}</td>
+                    <td className="p-3 font-medium max-w-[200px] truncate" title={inc.title}>{inc.title}</td>
+                    <td className="p-3">
+                      <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${severityColor(inc.severity)}`}>
+                        {inc.severity}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${incidentStatusColor(inc.status)}`}>
+                        {inc.status.replace("_", " ")}
+                      </span>
+                    </td>
+                    <td className="p-3 text-xs text-muted-foreground">{fmtDate(inc.discovered_at)}</td>
+                    <td className="p-3 text-xs text-muted-foreground">{inc.owner_name || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* Recent Resolved */}
+      {data.recent_resolved.length > 0 && (
+        <section>
+          <h2 className="text-base font-semibold mb-3">Recently Resolved</h2>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-3 font-medium">ID</th>
+                  <th className="text-left p-3 font-medium">Title</th>
+                  <th className="text-left p-3 font-medium">Severity</th>
+                  <th className="text-left p-3 font-medium">Discovered</th>
+                  <th className="text-left p-3 font-medium">Resolved</th>
+                  <th className="text-left p-3 font-medium">MTTR</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.recent_resolved.map((inc, i) => {
+                  const mttr = inc.resolved_at && inc.discovered_at
+                    ? Math.round((new Date(inc.resolved_at).getTime() - new Date(inc.discovered_at).getTime()) / (1000 * 60 * 60))
+                    : null;
+                  return (
+                    <tr key={inc.id} className={i % 2 === 0 ? "" : "bg-muted/20"}>
+                      <td className="p-3 font-mono text-xs text-muted-foreground">{inc.incident_id}</td>
+                      <td className="p-3 font-medium max-w-[200px] truncate" title={inc.title}>{inc.title}</td>
+                      <td className="p-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${severityColor(inc.severity)}`}>
+                          {inc.severity}
+                        </span>
+                      </td>
+                      <td className="p-3 text-xs text-muted-foreground">{fmtDate(inc.discovered_at)}</td>
+                      <td className="p-3 text-xs text-muted-foreground">{inc.resolved_at ? fmtDate(inc.resolved_at) : "—"}</td>
+                      <td className="p-3 text-xs font-mono">
+                        {mttr != null ? (mttr < 24 ? `${mttr}h` : `${Math.round(mttr / 24)}d`) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* Full Incident Register */}
+      <section>
+        <h2 className="text-base font-semibold mb-3">Incident Register ({data.incidents.length})</h2>
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="text-left p-3 font-medium">ID</th>
+                <th className="text-left p-3 font-medium">Title</th>
+                <th className="text-left p-3 font-medium">Severity</th>
+                <th className="text-left p-3 font-medium">Status</th>
+                <th className="text-left p-3 font-medium">Discovered</th>
+                <th className="text-left p-3 font-medium">Resolved</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.incidents.map((inc, i) => (
+                <tr key={inc.id} className={i % 2 === 0 ? "" : "bg-muted/20"}>
+                  <td className="p-3 font-mono text-xs text-muted-foreground">{inc.incident_id}</td>
+                  <td className="p-3 font-medium max-w-[200px] truncate" title={inc.title}>{inc.title}</td>
+                  <td className="p-3">
+                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${severityColor(inc.severity)}`}>
+                      {inc.severity}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${incidentStatusColor(inc.status)}`}>
+                      {inc.status.replace("_", " ")}
+                    </span>
+                  </td>
+                  <td className="p-3 text-xs text-muted-foreground">{fmtDate(inc.discovered_at)}</td>
+                  <td className="p-3 text-xs text-muted-foreground">
+                    {inc.resolved_at ? fmtDate(inc.resolved_at) : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 // ─── Main Reports Page ────────────────────────────────────────────────────────
 
-type ReportType = "risk" | "compliance";
+type ReportType = "risk" | "compliance" | "policy" | "vendor-risk" | "incident";
 
 export default function ReportsPage() {
   const [activeReport, setActiveReport] = useState<ReportType>("risk");
   const [riskData, setRiskData] = useState<RiskReportData | null>(null);
   const [complianceData, setComplianceData] = useState<ComplianceReportData | null>(null);
+  const [policyData, setPolicyData] = useState<PolicyReportData | null>(null);
+  const [vendorData, setVendorData] = useState<VendorRiskReportData | null>(null);
+  const [incidentData, setIncidentData] = useState<IncidentReportData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -514,13 +1171,21 @@ export default function ReportsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(
-        type === "risk" ? "/api/reports/risk-assessment" : "/api/reports/compliance"
-      );
+      const urls: Record<ReportType, string> = {
+        risk: "/api/reports/risk-assessment",
+        compliance: "/api/reports/compliance",
+        policy: "/api/reports/policy",
+        "vendor-risk": "/api/reports/vendor-risk",
+        incident: "/api/reports/incident",
+      };
+      const res = await fetch(urls[type]);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to generate report");
       if (type === "risk") setRiskData(json);
-      else setComplianceData(json);
+      else if (type === "compliance") setComplianceData(json);
+      else if (type === "policy") setPolicyData(json);
+      else if (type === "vendor-risk") setVendorData(json);
+      else setIncidentData(json);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -528,7 +1193,26 @@ export default function ReportsPage() {
     }
   }
 
-  const currentData = activeReport === "risk" ? riskData : complianceData;
+  const currentData =
+    activeReport === "risk" ? riskData :
+    activeReport === "compliance" ? complianceData :
+    activeReport === "policy" ? policyData :
+    activeReport === "vendor-risk" ? vendorData :
+    incidentData;
+
+  function summaryText() {
+    if (activeReport === "risk" && riskData)
+      return `${riskData.stats.total} risks · ${riskData.stats.by_score.critical} critical`;
+    if (activeReport === "compliance" && complianceData)
+      return `${complianceData.overall_score}% overall compliance`;
+    if (activeReport === "policy" && policyData)
+      return `${policyData.stats.total} policies · ${policyData.stats.overdue_review} overdue reviews`;
+    if (activeReport === "vendor-risk" && vendorData)
+      return `${vendorData.stats.total} vendors · ${vendorData.stats.by_tier.critical} critical tier`;
+    if (activeReport === "incident" && incidentData)
+      return `${incidentData.stats.total} incidents · ${incidentData.stats.open} open`;
+    return "";
+  }
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -541,19 +1225,37 @@ export default function ReportsPage() {
       </div>
 
       {/* Report selector */}
-      <div className="grid sm:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         {[
           {
             type: "risk" as const,
-            title: "Risk Assessment Report",
-            description: "Heat map, risk register, mitigation progress, and score analysis",
+            title: "Risk Assessment",
+            description: "Heat map, risk register, mitigation progress, score analysis",
             icon: "⚠️",
           },
           {
             type: "compliance" as const,
-            title: "Compliance & Audit Report",
-            description: "Framework readiness, gap analysis, evidence coverage, domain breakdown",
+            title: "Compliance & Audit",
+            description: "Framework readiness, gap analysis, evidence coverage",
             icon: "📋",
+          },
+          {
+            type: "policy" as const,
+            title: "Policy & Procedure",
+            description: "Policy register, review schedule, attestation status",
+            icon: "📜",
+          },
+          {
+            type: "vendor-risk" as const,
+            title: "Vendor / Third-Party Risk",
+            description: "Vendor tier breakdown, contract expiry, risk scores",
+            icon: "🏢",
+          },
+          {
+            type: "incident" as const,
+            title: "Incident Management",
+            description: "Open incidents, MTTR, severity breakdown, resolution history",
+            icon: "🚨",
           },
         ].map(({ type, title, description, icon }) => (
           <button
@@ -598,11 +1300,7 @@ export default function ReportsPage() {
         <div>
           {/* Actions bar */}
           <div className="flex items-center justify-between mb-4 no-print">
-            <p className="text-sm text-muted-foreground">
-              {activeReport === "risk"
-                ? `${(riskData as RiskReportData)?.stats.total} risks · ${(riskData as RiskReportData)?.stats.by_score.critical} critical`
-                : `${(complianceData as ComplianceReportData)?.overall_score}% overall compliance`}
-            </p>
+            <p className="text-sm text-muted-foreground">{summaryText()}</p>
             <button
               onClick={() => window.print()}
               className="inline-flex items-center gap-2 rounded-lg border bg-card px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent transition-colors"
@@ -618,6 +1316,9 @@ export default function ReportsPage() {
           >
             {activeReport === "risk" && riskData && <RiskAssessmentReport data={riskData} />}
             {activeReport === "compliance" && complianceData && <ComplianceReport data={complianceData} />}
+            {activeReport === "policy" && policyData && <PolicyReport data={policyData} />}
+            {activeReport === "vendor-risk" && vendorData && <VendorRiskReport data={vendorData} />}
+            {activeReport === "incident" && incidentData && <IncidentReport data={incidentData} />}
           </div>
         </div>
       )}
