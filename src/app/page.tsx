@@ -58,7 +58,7 @@ export default function Home() {
             AI-Native GRC Platform · SOC 2 · ISO 27001 · NIST · GitHub · Jira · Slack
           </div>
 
-          <h1 className="mb-6 font-display text-5xl font-extrabold leading-[1.05] tracking-tight md:text-7xl lg:text-[5.5rem]">
+          <h1 className="mb-6 font-display text-5xl font-bold leading-[1.05] tracking-tight md:text-7xl lg:text-[5.5rem]">
             Compliance through{" "}
             <span className="text-primary">conversation,</span>
             <br />not forms
