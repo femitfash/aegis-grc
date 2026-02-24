@@ -123,6 +123,11 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
         window.dispatchEvent(new CustomEvent("grc:requirement-status-updated"));
       } else if (action.name === "create_requirement") {
         window.dispatchEvent(new CustomEvent("grc:requirement-created"));
+      } else if (action.name === "link_risk_to_control") {
+        window.dispatchEvent(new CustomEvent("grc:risk-controls-updated"));
+        window.dispatchEvent(new CustomEvent("grc:risk-created")); // refresh risk list for residual scores
+      } else if (action.name === "create_evidence") {
+        window.dispatchEvent(new CustomEvent("grc:evidence-created"));
       }
 
       // Add a follow-up message
@@ -131,6 +136,8 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
         action.name === "create_control" ? "control" :
         action.name === "update_requirement_status" ? "requirement status" :
         action.name === "create_requirement" ? "requirement" :
+        action.name === "link_risk_to_control" ? "risk-control link" :
+        action.name === "create_evidence" ? "evidence record" :
         action.name.replace(/_/g, " ");
       const successMsg: Message = {
         id: generateId(),
@@ -522,6 +529,8 @@ function ActionCard({
     create_framework: "Create Framework",
     update_requirement_status: "Update Requirement",
     create_requirement: "Add Requirement",
+    link_risk_to_control: "Link Control to Risk",
+    create_evidence: "Create Evidence",
   };
 
   if (action.status === "executing") {
@@ -558,6 +567,8 @@ function ActionCard({
   const isFramework = action.name === "create_framework";
   const isRequirementUpdate = action.name === "update_requirement_status";
   const isRequirementCreate = action.name === "create_requirement";
+  const isLinkRiskControl = action.name === "link_risk_to_control";
+  const isCreateEvidence = action.name === "create_evidence";
 
   return (
     <div className="mt-2 ml-2 p-4 rounded-xl border bg-card shadow-sm">
@@ -725,6 +736,76 @@ function ActionCard({
           </>
         )}
 
+        {/* Link risk to control fields */}
+        {isLinkRiskControl && (
+          <>
+            {Boolean(input.risk_id) && (
+              <div className="flex text-sm">
+                <span className="text-muted-foreground w-24 shrink-0">Risk:</span>
+                <span className="font-mono font-semibold">{String(input.risk_id)}</span>
+              </div>
+            )}
+            {Boolean(input.control_id) && (
+              <div className="flex text-sm">
+                <span className="text-muted-foreground w-24 shrink-0">Control:</span>
+                <span className="font-mono font-semibold">{String(input.control_id)}</span>
+              </div>
+            )}
+            {Boolean(input.notes) && (
+              <div className="flex text-sm">
+                <span className="text-muted-foreground w-24 shrink-0">Notes:</span>
+                <span className="text-xs">{String(input.notes)}</span>
+              </div>
+            )}
+            <div className="text-xs text-muted-foreground mt-1">
+              Residual risk score will be recalculated automatically.
+            </div>
+          </>
+        )}
+
+        {/* Create evidence fields */}
+        {isCreateEvidence && (
+          <>
+            {Boolean(input.title) && (
+              <div className="flex text-sm">
+                <span className="text-muted-foreground w-24 shrink-0">Title:</span>
+                <span className="font-medium">{String(input.title)}</span>
+              </div>
+            )}
+            {Boolean(input.source_type) && (
+              <div className="flex text-sm">
+                <span className="text-muted-foreground w-24 shrink-0">Source:</span>
+                <span className="capitalize">{String(input.source_type)}</span>
+              </div>
+            )}
+            {Boolean(input.control_code) && (
+              <div className="flex text-sm">
+                <span className="text-muted-foreground w-24 shrink-0">Control:</span>
+                <span className="font-mono font-semibold">{String(input.control_code)}</span>
+              </div>
+            )}
+            {Boolean(input.source_url) && (
+              <div className="flex text-sm">
+                <span className="text-muted-foreground w-24 shrink-0">URL:</span>
+                <a
+                  href={String(input.source_url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary hover:underline truncate max-w-[180px]"
+                >
+                  {String(input.source_url)}
+                </a>
+              </div>
+            )}
+            {Array.isArray(input.frameworks) && (input.frameworks as string[]).length > 0 && (
+              <div className="flex text-sm">
+                <span className="text-muted-foreground w-24 shrink-0">Frameworks:</span>
+                <span>{(input.frameworks as string[]).join(", ")}</span>
+              </div>
+            )}
+          </>
+        )}
+
         {/* Framework fields */}
         {isFramework && (
           <>
@@ -761,7 +842,10 @@ function ActionCard({
           onClick={onApprove}
           className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
         >
-          {isRequirementCreate ? "Add Requirement" : "Approve & Create"}
+          {isRequirementCreate ? "Add Requirement" :
+           isLinkRiskControl ? "Link Control" :
+           isCreateEvidence ? "Save Evidence" :
+           "Approve & Create"}
         </button>
         <button
           onClick={onReject}

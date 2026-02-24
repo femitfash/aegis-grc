@@ -271,6 +271,143 @@ export async function POST(request: NextRequest) {
         return Response.json({ success: true, result: data, toolCallId });
       }
 
+      case "link_risk_to_control": {
+        // Resolve risk: find by risk_id (human-readable) or UUID
+        const riskQuery = String(input.risk_id || "").trim();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let riskRow: any = null;
+        if (riskQuery) {
+          // Try by human-readable risk_id first, then UUID
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: byRiskId } = await (admin as any)
+            .from("risks")
+            .select("id")
+            .eq("organization_id", organizationId)
+            .ilike("risk_id", riskQuery)
+            .single();
+          riskRow = byRiskId;
+          if (!riskRow) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: byUuid } = await (admin as any)
+              .from("risks")
+              .select("id")
+              .eq("id", riskQuery)
+              .single();
+            riskRow = byUuid;
+          }
+        }
+        if (!riskRow) {
+          return Response.json({ error: "Risk not found", detail: `No risk matching: ${riskQuery}` }, { status: 404 });
+        }
+
+        // Resolve control: find by code or UUID
+        const controlQuery = String(input.control_id || "").trim();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let controlRow: any = null;
+        if (controlQuery) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: byCode } = await (admin as any)
+            .from("control_library")
+            .select("id, code, title, effectiveness_rating")
+            .eq("organization_id", organizationId)
+            .ilike("code", controlQuery)
+            .single();
+          controlRow = byCode;
+          if (!controlRow) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: byUuid } = await (admin as any)
+              .from("control_library")
+              .select("id, code, title, effectiveness_rating")
+              .eq("id", controlQuery)
+              .single();
+            controlRow = byUuid;
+          }
+        }
+        if (!controlRow) {
+          return Response.json({ error: "Control not found", detail: `No control matching: ${controlQuery}` }, { status: 404 });
+        }
+
+        // Create the mapping
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: mapError } = await (admin as any)
+          .from("risk_control_mappings")
+          .upsert(
+            { risk_id: riskRow.id, control_id: controlRow.id, notes: input.notes || null },
+            { onConflict: "risk_id,control_id" }
+          );
+
+        if (mapError) {
+          return Response.json({ error: "Failed to link", detail: mapError.message }, { status: 500 });
+        }
+
+        // Recalculate residual score
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: allMappings } = await (admin as any)
+          .from("risk_control_mappings")
+          .select("control_library(effectiveness_rating)")
+          .eq("risk_id", riskRow.id);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const ratings = (allMappings || []).map((m: any) => m.control_library?.effectiveness_rating ?? 0).filter((r: number) => r > 0);
+        if (ratings.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: risk } = await (admin as any)
+            .from("risks")
+            .select("inherent_likelihood, inherent_impact")
+            .eq("id", riskRow.id)
+            .single();
+
+          if (risk) {
+            const avgEff = ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length;
+            const reduction = (avgEff / 5) * 0.7;
+            const residualLikelihood = Math.max(1, Math.round(risk.inherent_likelihood * (1 - reduction)));
+            const residualImpact = Math.max(1, Math.round(risk.inherent_impact * (1 - reduction)));
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (admin as any)
+              .from("risks")
+              .update({ residual_likelihood: residualLikelihood, residual_impact: residualImpact, status: "assessed" })
+              .eq("id", riskRow.id);
+          }
+        }
+
+        await bumpCount();
+        return Response.json({
+          success: true,
+          result: { risk_id: riskQuery, control: controlRow.code, control_title: controlRow.title },
+          toolCallId,
+        });
+      }
+
+      case "create_evidence": {
+        const evidenceId = `EVD-${Date.now().toString(36).toUpperCase()}`;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (admin as any)
+          .from("evidence")
+          .insert({
+            organization_id: organizationId,
+            evidence_id: evidenceId,
+            title: input.title || "Untitled Evidence",
+            description: input.description || "",
+            source_type: input.source_type || "manual",
+            source_url: input.source_url || null,
+            control_code: input.control_code || null,
+            collected_by: user.id,
+            collected_at: new Date().toISOString(),
+            status: "collected",
+            metadata: { frameworks: Array.isArray(input.frameworks) ? input.frameworks : [] },
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error("Create evidence DB error:", JSON.stringify(error));
+          return Response.json({ error: "Failed to create evidence", detail: error.message }, { status: 500 });
+        }
+
+        await bumpCount();
+        return Response.json({ success: true, result: data, toolCallId });
+      }
+
       default:
         return Response.json({ error: `Unknown action: ${name}` }, { status: 400 });
     }

@@ -6,8 +6,17 @@ const inter = Inter({ subsets: ["latin"] });
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://aegisgrc.com";
 
+// Safe URL factory — avoids Turbopack "module factory" crash if env var is malformed
+function toURL(href: string): URL {
+  try {
+    return new URL(href);
+  } catch {
+    return new URL("https://aegisgrc.com");
+  }
+}
+
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: toURL(siteUrl),
   title: {
     default: "Aegis GRC — AI-Powered Compliance Platform",
     template: "%s | Aegis GRC",
@@ -77,45 +86,46 @@ export const metadata: Metadata = {
   },
 };
 
-const schemaOrg = {
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  name: "Aegis GRC",
-  url: siteUrl,
-  description:
-    "AI-powered Governance, Risk, and Compliance (GRC) platform. Manage SOC 2, ISO 27001, NIST CSF, and HIPAA compliance through conversational AI. Zero-field risk entry, immutable audit trail, and 15-minute setup.",
-  applicationCategory: "SecurityApplication",
-  operatingSystem: "Web",
-  offers: {
-    "@type": "Offer",
-    price: "0",
-    priceCurrency: "USD",
-    description: "Free tier with 10 AI actions. Unlimited via bring-your-own Anthropic API key.",
-  },
-  featureList: [
-    "AI Copilot for risk management",
-    "SOC 2 Type II compliance tracking",
-    "ISO 27001:2022 framework",
-    "NIST CSF 2.0 framework",
-    "HIPAA compliance management",
-    "Zero-field risk entry via natural language",
-    "Immutable audit trail with cryptographic hash chain",
-    "Custom compliance frameworks",
-    "Bring your own Anthropic API key",
-    "Multi-framework compliance dashboard",
-  ],
-  softwareHelp: {
-    "@type": "CreativeWork",
-    name: "Aegis GRC Documentation",
-  },
-  screenshot: `${siteUrl}/og-image.png`,
-};
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Defined inside the component so it's not evaluated at module instantiation time
+  const schemaOrg = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Aegis GRC",
+    url: siteUrl,
+    description:
+      "AI-powered Governance, Risk, and Compliance (GRC) platform. Manage SOC 2, ISO 27001, NIST CSF, and HIPAA compliance through conversational AI. Zero-field risk entry, immutable audit trail, and 15-minute setup.",
+    applicationCategory: "SecurityApplication",
+    operatingSystem: "Web",
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+      description: "Free tier with 10 AI actions. Unlimited via bring-your-own Anthropic API key.",
+    },
+    featureList: [
+      "AI Copilot for risk management",
+      "SOC 2 Type II compliance tracking",
+      "ISO 27001:2022 framework",
+      "NIST CSF 2.0 framework",
+      "HIPAA compliance management",
+      "Zero-field risk entry via natural language",
+      "Immutable audit trail with cryptographic hash chain",
+      "Custom compliance frameworks",
+      "Bring your own Anthropic API key",
+      "Multi-framework compliance dashboard",
+    ],
+    softwareHelp: {
+      "@type": "CreativeWork",
+      name: "Aegis GRC Documentation",
+    },
+    screenshot: `${siteUrl}/og-image.png`,
+  };
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>

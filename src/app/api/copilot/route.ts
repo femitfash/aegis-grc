@@ -240,6 +240,66 @@ const tools: Anthropic.Tool[] = [
       required: ["framework_code", "title"],
     },
   },
+  {
+    name: "link_risk_to_control",
+    description:
+      "Link an existing control to an existing risk as a mitigation measure. This updates the residual risk score automatically based on control effectiveness. Use when user says a control mitigates a risk, or when assessing risk treatment.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        risk_id: {
+          type: "string",
+          description: "The UUID or risk_id (e.g., 'RISK-ABC123') of the risk to link",
+        },
+        control_id: {
+          type: "string",
+          description: "The UUID or control code (e.g., 'MFA-01') of the control to link",
+        },
+        notes: {
+          type: "string",
+          description: "Optional notes explaining how this control mitigates the risk",
+        },
+      },
+      required: ["risk_id", "control_id"],
+    },
+  },
+  {
+    name: "create_evidence",
+    description:
+      "Create an evidence record linked to a control. Evidence proves that a control is operating effectively. Use when the user wants to document evidence — a URL to a report, document, screenshot, or process record.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        title: {
+          type: "string",
+          description: "Descriptive title of the evidence (e.g., 'Q1 2026 Access Review Report')",
+        },
+        description: {
+          type: "string",
+          description: "What the evidence demonstrates",
+        },
+        source_type: {
+          type: "string",
+          enum: ["manual", "automated", "integration"],
+          description: "How the evidence was collected",
+        },
+        source_url: {
+          type: "string",
+          description: "URL link to the evidence (Google Doc, GitHub PR, Confluence page, etc.)",
+        },
+        control_code: {
+          type: "string",
+          description: "Code of the control this evidence supports (e.g., 'MFA-01', 'AC-02')",
+        },
+        frameworks: {
+          type: "array",
+          items: { type: "string" },
+          description: "Framework codes this evidence satisfies (e.g., ['SOC2', 'ISO27001'])",
+        },
+      },
+      required: ["title"],
+    },
+  },
 ];
 
 // Execute read-only tools server-side
@@ -425,7 +485,7 @@ export async function POST(request: NextRequest) {
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
       for (const toolUse of toolUseBlocks) {
-        const WRITE_TOOLS = ["create_risk", "create_control", "create_framework", "update_requirement_status", "create_requirement"];
+        const WRITE_TOOLS = ["create_risk", "create_control", "create_framework", "update_requirement_status", "create_requirement", "link_risk_to_control", "create_evidence"];
         if (WRITE_TOOLS.includes(toolUse.name)) {
           // Write tool — queue for user approval
           pendingActions.push({
