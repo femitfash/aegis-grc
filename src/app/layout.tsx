@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
+const jakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["700", "800"],
+  variable: "--font-display",
+  display: "swap",
+});
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://aegisgrc.com";
 
@@ -142,7 +148,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={inter.className}
+        className={`${inter.className} ${jakartaSans.variable}`}
         suppressHydrationWarning
         data-gramm="false"
         data-gramm_editor="false"
