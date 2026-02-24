@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   let query = (admin as any)
     .from("audit_log")
     .select(
-      "id, sequence_number, action, entity_type, entity_id, user_id, old_values, new_values, entry_hash, previous_hash, created_at, context"
+      "id, sequence_number, action, entity_type, entity_id, user_id, old_values, new_values, entry_hash, previous_hash, created_at"
     )
     .eq("organization_id", organizationId)
     .order("sequence_number", { ascending: false })

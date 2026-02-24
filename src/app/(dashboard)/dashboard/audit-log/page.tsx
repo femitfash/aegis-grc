@@ -14,7 +14,6 @@ interface AuditEntry {
   entry_hash: string;
   previous_hash: string | null;
   created_at: string;
-  context: Record<string, unknown> | null;
 }
 
 const ACTION_COLORS: Record<string, string> = {
@@ -261,14 +260,6 @@ export default function AuditLogPage() {
                               </div>
                             )}
 
-                            {entry.context && Object.keys(entry.context).length > 0 && (
-                              <div>
-                                <p className="text-muted-foreground mb-1 font-medium">Context</p>
-                                <pre className="text-[10px] font-mono bg-muted px-2 py-1 rounded overflow-x-auto">
-                                  {JSON.stringify(entry.context, null, 2)}
-                                </pre>
-                              </div>
-                            )}
                           </div>
                         </td>
                       </tr>

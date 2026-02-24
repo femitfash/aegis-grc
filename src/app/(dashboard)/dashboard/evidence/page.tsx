@@ -32,20 +32,33 @@ const SOURCE_ICONS: Record<Evidence["sourceType"], string> = {
   manual: "👤", automated: "🤖", integration: "🔗",
 };
 
+// Map DB status values to UI status values
+function mapDbStatus(dbStatus: string | null): Evidence["status"] {
+  switch (dbStatus) {
+    case "approved": return "collected";
+    case "expired": return "stale";
+    case "rejected": return "rejected";
+    case "pending": return "pending";
+    default: return "pending";
+  }
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapDbEvidence(row: any): Evidence {
   const meta = row.metadata || {};
+  const sourceMeta = row.source_metadata || {};
   return {
     id: row.id,
     evidenceId: row.evidence_id || `EVD-${row.id?.slice(0, 6).toUpperCase()}`,
     title: row.title || "Untitled Evidence",
     description: row.description || "",
     sourceType: row.source_type || "manual",
-    controlCode: row.control_code || "",
-    sourceUrl: row.source_url || "",
-    status: row.status || "collected",
+    // control_code and source_url are stored in JSONB fields, not top-level columns
+    controlCode: meta.control_code || "",
+    sourceUrl: sourceMeta.source_url || "",
+    status: mapDbStatus(row.status),
     collectedAt: (row.collected_at || row.created_at || "").slice(0, 10),
-    collector: row.collector_name || row.collected_by || "Team member",
+    collector: "Team member",
     frameworks: Array.isArray(meta.frameworks) ? meta.frameworks : [],
   };
 }

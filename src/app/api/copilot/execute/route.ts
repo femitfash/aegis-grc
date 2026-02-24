@@ -389,12 +389,15 @@ export async function POST(request: NextRequest) {
             title: input.title || "Untitled Evidence",
             description: input.description || "",
             source_type: input.source_type || "manual",
-            source_url: input.source_url || null,
-            control_code: input.control_code || null,
-            collected_by: user.id,
+            // source_url and control_code are not schema columns — store in JSONB fields
+            source_metadata: input.source_url ? { source_url: input.source_url } : {},
+            metadata: {
+              frameworks: Array.isArray(input.frameworks) ? input.frameworks : [],
+              control_code: input.control_code || null,
+            },
+            created_by: user.id,
             collected_at: new Date().toISOString(),
-            status: "collected",
-            metadata: { frameworks: Array.isArray(input.frameworks) ? input.frameworks : [] },
+            status: "pending",
           })
           .select()
           .single();

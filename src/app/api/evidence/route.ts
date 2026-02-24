@@ -63,7 +63,6 @@ export async function POST(request: NextRequest) {
     source_url,
     control_code,
     frameworks = [],
-    valid_until,
   } = body;
 
   if (!title) return Response.json({ error: "title is required" }, { status: 400 });
@@ -80,15 +79,15 @@ export async function POST(request: NextRequest) {
       title,
       description: description || "",
       source_type,
-      source_url: source_url || null,
-      control_code: control_code || null,
-      collected_by: user.id,
-      collected_at: new Date().toISOString(),
-      status: "collected",
-      valid_until: valid_until || null,
+      // source_url and control_code are not schema columns — store in JSONB fields
+      source_metadata: source_url ? { source_url } : {},
       metadata: {
         frameworks: Array.isArray(frameworks) ? frameworks : [],
+        control_code: control_code || null,
       },
+      created_by: user.id,
+      collected_at: new Date().toISOString(),
+      status: "pending",
     })
     .select()
     .single();
