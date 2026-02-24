@@ -115,30 +115,51 @@ export async function POST(request: NextRequest) {
     const forbidden = assertAdminRole(role);
     if (forbidden) return forbidden;
 
-    // Upsert: one integration per provider per org
+    // Check for existing integration for this org+provider, then update or insert
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (admin as any)
+    const { data: existing } = await (admin as any)
       .from("integrations")
-      .upsert(
-        {
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("provider", provider)
+      .maybeSingle();
+
+    let data: { id: string; provider: string; name: string; status: string } | null = null;
+    let error: { message: string } | null = null;
+
+    if (existing?.id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (admin as any)
+        .from("integrations")
+        .update({ name, config, updated_at: new Date().toISOString() })
+        .eq("id", existing.id)
+        .select("id, provider, name, status")
+        .single();
+      data = result.data;
+      error = result.error;
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (admin as any)
+        .from("integrations")
+        .insert({
           organization_id: organizationId,
           provider,
           name,
           config,
           status: "inactive",
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "organization_id,provider" }
-      )
-      .select("id, provider, name, status")
-      .single();
+        })
+        .select("id, provider, name, status")
+        .single();
+      data = result.data;
+      error = result.error;
+    }
 
     if (error) {
-      console.error("Upsert integration error:", JSON.stringify(error));
+      console.error("Save integration error:", JSON.stringify(error));
       return Response.json({ error: "Failed to save integration", detail: error.message }, { status: 500 });
     }
 
-    void logAudit({ organizationId, userId: user.id, action: "integration.connected", entityType: "integration", entityId: data.id, newValues: { provider, name } });
+    void logAudit({ organizationId, userId: user.id, action: "integration.connected", entityType: "integration", entityId: data?.id ?? "", newValues: { provider, name } });
     return Response.json({ integration: data }, { status: 201 });
   } catch (error) {
     console.error("POST /api/integrations error:", error);
