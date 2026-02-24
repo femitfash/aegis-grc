@@ -226,11 +226,21 @@ function RiskControlPanel({
             {loadingControls ? (
               <p className="text-xs text-muted-foreground">Loading...</p>
             ) : linkedControls.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">
-                {orgControls.length === 0
-                  ? "No controls in your library yet. Add controls via the Copilot or the Controls page."
-                  : "No controls linked yet. Select a control below to start reducing this risk."}
-              </p>
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground italic">
+                  {orgControls.length === 0
+                    ? "No controls in your library yet. Add controls via the Copilot or the Controls page."
+                    : "No controls linked yet. Select a control below to start reducing this risk."}
+                </p>
+                {orgControls.length === 0 && (
+                  <a
+                    href="/dashboard/controls"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border bg-background text-xs font-medium hover:bg-accent transition-colors"
+                  >
+                    Go to Controls page →
+                  </a>
+                )}
+              </div>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {linkedControls.map((ctrl) => (
