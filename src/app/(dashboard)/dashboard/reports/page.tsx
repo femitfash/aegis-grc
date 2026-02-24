@@ -1336,10 +1336,14 @@ export default function ReportsPage() {
       {/* Print styles */}
       <style>{`
         @media print {
-          body > * { display: none !important; }
-          #report-content { display: block !important; }
-          .no-print { display: none !important; }
-          aside, nav, header, footer { display: none !important; }
+          body * { visibility: hidden; }
+          #report-content, #report-content * { visibility: visible; }
+          #report-content {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
         }
       `}</style>
     </div>
