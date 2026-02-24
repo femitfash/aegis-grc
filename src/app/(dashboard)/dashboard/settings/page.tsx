@@ -27,9 +27,13 @@ const INTEGRATIONS = [
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("organization");
   const { theme, setTheme } = useTheme();
-  const [orgName, setOrgName] = useState("Acme Corp");
-  const [orgSlug, setOrgSlug] = useState("acme-corp");
+  const [orgName, setOrgName] = useState("");
+  const [orgSlug, setOrgSlug] = useState("");
+  const [orgIndustry, setOrgIndustry] = useState("Technology / SaaS");
+  const [orgSize, setOrgSize] = useState("1-50 employees");
+  const [orgLoading, setOrgLoading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("Viewer");
 
@@ -40,7 +44,21 @@ export default function SettingsPage() {
   const [apiKeyError, setApiKeyError] = useState("");
   const [apiKeyLoading, setApiKeyLoading] = useState(false);
 
+  // Load organization details when the org tab is first shown
   useEffect(() => {
+    if (activeTab === "organization") {
+      fetch("/api/settings/organization")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.organization) {
+            setOrgName(data.organization.name || "");
+            setOrgSlug(data.organization.slug || "");
+            setOrgIndustry(data.organization.industry || "Technology / SaaS");
+            setOrgSize(data.organization.company_size || "1-50 employees");
+          }
+        })
+        .catch(() => {});
+    }
     if (activeTab === "ai") {
       fetch("/api/settings/copilot")
         .then((r) => r.json())
@@ -71,9 +89,29 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const handleSave = async () => {
+    setOrgLoading(true);
+    setSaveError("");
+    try {
+      const res = await fetch("/api/settings/organization", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: orgName,
+          slug: orgSlug,
+          industry: orgIndustry,
+          company_size: orgSize,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setOrgLoading(false);
+    }
   };
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
@@ -144,7 +182,11 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Industry</label>
-                    <select className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                    <select
+                      value={orgIndustry}
+                      onChange={(e) => setOrgIndustry(e.target.value)}
+                      className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
                       <option>Technology / SaaS</option>
                       <option>Financial Services</option>
                       <option>Healthcare</option>
@@ -154,22 +196,30 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Company Size</label>
-                    <select className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                    <select
+                      value={orgSize}
+                      onChange={(e) => setOrgSize(e.target.value)}
+                      className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
                       <option>1-50 employees</option>
                       <option>51-200 employees</option>
                       <option>201-1000 employees</option>
                       <option>1000+ employees</option>
                     </select>
                   </div>
+                  {saveError && (
+                    <p className="text-sm text-destructive">{saveError}</p>
+                  )}
                   <button
                     onClick={handleSave}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    disabled={orgLoading}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50 ${
                       saved
                         ? "bg-green-600 text-white"
                         : "bg-primary text-primary-foreground hover:bg-primary/90"
                     }`}
                   >
-                    {saved ? "✅ Saved!" : "Save Changes"}
+                    {saved ? "✅ Saved!" : orgLoading ? "Saving…" : "Save Changes"}
                   </button>
                 </div>
               </div>

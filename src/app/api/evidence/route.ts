@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
     source_url,
     control_code,
     frameworks = [],
+    valid_to,
   } = body;
 
   if (!title) return Response.json({ error: "title is required" }, { status: 400 });
@@ -88,6 +89,8 @@ export async function POST(request: NextRequest) {
       created_by: user.id,
       collected_at: new Date().toISOString(),
       status: "pending",
+      // valid_to tracks evidence expiry date (e.g. annual review, certificate expiry)
+      valid_to: valid_to || null,
     })
     .select()
     .single();

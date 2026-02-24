@@ -40,7 +40,7 @@ export default function Home() {
               Sign in
             </Link>
             <Link
-              href="/login"
+              href="/register"
               className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
             >
               Get started free <ArrowRight className="h-3.5 w-3.5" />
@@ -72,7 +72,7 @@ export default function Home() {
 
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
-              href="/login"
+              href="/register"
               className="inline-flex items-center gap-2 rounded-md bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground shadow-lg transition-all hover:bg-primary/90 hover:shadow-primary/25 hover:shadow-xl"
             >
               Start free — no credit card needed
@@ -596,7 +596,7 @@ export default function Home() {
                 ))}
               </ul>
               <Link
-                href="/login"
+                href="/register"
                 className="block w-full rounded-md border border-input bg-background py-2.5 text-center text-sm font-semibold transition-colors hover:bg-accent"
               >
                 Get started free
@@ -622,7 +622,7 @@ export default function Home() {
                 ))}
               </ul>
               <Link
-                href="/login"
+                href="/register"
                 className="block w-full rounded-md bg-primary py-2.5 text-center text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 Start free, add your key later
@@ -643,7 +643,7 @@ export default function Home() {
             Get started free — no credit card, no sales call, no implementation project.
           </p>
           <Link
-            href="/login"
+            href="/register"
             className="inline-flex items-center gap-2 rounded-md bg-primary px-8 py-3.5 text-sm font-semibold text-primary-foreground shadow-lg transition-all hover:bg-primary/90 hover:shadow-primary/25 hover:shadow-xl"
           >
             Start for free today

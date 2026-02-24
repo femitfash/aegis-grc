@@ -105,16 +105,160 @@ function mapDbRisk(row: any): Risk {
   };
 }
 
+// ─── Edit Risk Form ──────────────────────────────────────────────────────────
+
+function EditRiskForm({
+  risk,
+  onClose,
+  onSaved,
+}: {
+  risk: Risk;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    title: risk.title,
+    description: risk.description,
+    status: risk.status,
+    likelihood: risk.likelihood,
+    impact: risk.impact,
+    risk_response: risk.treatment,
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/risks/${risk.dbId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title,
+          description: form.description,
+          status: form.status,
+          inherent_likelihood: Number(form.likelihood),
+          inherent_impact: Number(form.impact),
+          risk_response: form.risk_response,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || data.error || "Failed to update");
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <label className="block text-xs font-medium mb-1">Title</label>
+          <input
+            type="text"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            className="w-full px-3 py-1.5 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium mb-1">Status</label>
+          <select
+            value={form.status}
+            onChange={(e) => setForm({ ...form, status: e.target.value as Risk["status"] })}
+            className="w-full px-3 py-1.5 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="identified">Identified</option>
+            <option value="assessed">Assessed</option>
+            <option value="mitigated">Mitigated</option>
+            <option value="accepted">Accepted</option>
+            <option value="closed">Closed</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium mb-1">Risk Response</label>
+          <select
+            value={form.risk_response}
+            onChange={(e) => setForm({ ...form, risk_response: e.target.value })}
+            className="w-full px-3 py-1.5 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="mitigate">Mitigate</option>
+            <option value="accept">Accept</option>
+            <option value="transfer">Transfer</option>
+            <option value="avoid">Avoid</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium mb-1">Likelihood (1-5)</label>
+          <input
+            type="number"
+            min={1}
+            max={5}
+            value={form.likelihood}
+            onChange={(e) => setForm({ ...form, likelihood: Number(e.target.value) })}
+            className="w-full px-3 py-1.5 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium mb-1">Impact (1-5)</label>
+          <input
+            type="number"
+            min={1}
+            max={5}
+            value={form.impact}
+            onChange={(e) => setForm({ ...form, impact: Number(e.target.value) })}
+            className="w-full px-3 py-1.5 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-xs font-medium mb-1">Description</label>
+          <textarea
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            rows={2}
+            className="w-full px-3 py-1.5 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+          />
+        </div>
+      </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={saving}
+          className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+        >
+          {saving ? "Saving…" : "Save Changes"}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-3 py-1.5 rounded-md border text-xs hover:bg-accent transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // ─── Control Detail Panel ────────────────────────────────────────────────────
 
 function RiskControlPanel({
   risk,
   onClose,
   onControlLinked,
+  onDeleted,
 }: {
   risk: Risk;
   onClose: () => void;
   onControlLinked: () => void;
+  onDeleted: () => void;
 }) {
   const [linkedControls, setLinkedControls] = useState<LinkedControl[]>([]);
   const [orgControls, setOrgControls] = useState<OrgControl[]>([]);
@@ -122,6 +266,9 @@ function RiskControlPanel({
   const [selectedControlId, setSelectedControlId] = useState("");
   const [linking, setLinking] = useState(false);
   const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const fetchLinked = useCallback(async () => {
     setLoadingControls(true);
@@ -173,6 +320,21 @@ function RiskControlPanel({
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirm(`Delete risk "${risk.title}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const res = await fetch(`/api/risks/${risk.dbId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || data.error || "Failed to delete");
+      onDeleted();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete");
+      setDeleting(false);
+    }
+  };
+
   const linkedIds = new Set(linkedControls.map((c) => c.controlId));
   const availableControls = orgControls.filter((c) => !linkedIds.has(c.id));
 
@@ -185,30 +347,59 @@ function RiskControlPanel({
       <td colSpan={10} className="p-0">
         <div className="bg-muted/20 border-b px-6 py-4 space-y-4">
           {/* Risk summary */}
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4 text-sm">
-            <div>
-              <span className="text-xs text-muted-foreground uppercase tracking-wide block mb-1">Inherent Score</span>
-              <RiskScoreBadge score={risk.score} />
-            </div>
-            {risk.residualScore !== null && (
+          <div className="flex items-start justify-between">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 text-sm flex-1">
               <div>
-                <span className="text-xs text-muted-foreground uppercase tracking-wide block mb-1">Residual Score</span>
-                <RiskScoreBadge score={risk.residualScore} label="Residual" />
+                <span className="text-xs text-muted-foreground uppercase tracking-wide block mb-1">Inherent Score</span>
+                <RiskScoreBadge score={risk.score} />
               </div>
-            )}
-            <div>
-              <span className="text-xs text-muted-foreground uppercase tracking-wide block mb-1">Treatment</span>
-              <span className="capitalize font-medium">{risk.treatment}</span>
+              {risk.residualScore !== null && (
+                <div>
+                  <span className="text-xs text-muted-foreground uppercase tracking-wide block mb-1">Residual Score</span>
+                  <RiskScoreBadge score={risk.residualScore} label="Residual" />
+                </div>
+              )}
+              <div>
+                <span className="text-xs text-muted-foreground uppercase tracking-wide block mb-1">Treatment</span>
+                <span className="capitalize font-medium">{risk.treatment}</span>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground uppercase tracking-wide block mb-1">Status</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[risk.status]}`}>
+                  {STATUS_LABELS[risk.status]}
+                </span>
+              </div>
             </div>
-            <div>
-              <span className="text-xs text-muted-foreground uppercase tracking-wide block mb-1">Status</span>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[risk.status]}`}>
-                {STATUS_LABELS[risk.status]}
-              </span>
+            <div className="flex gap-2 ml-4 shrink-0">
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowEditForm((v) => !v); }}
+                className="px-3 py-1 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
+              >
+                {showEditForm ? "Cancel Edit" : "Edit"}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+                disabled={deleting}
+                className="px-3 py-1 rounded-md border border-red-200 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
             </div>
           </div>
 
-          {risk.description && (
+          {deleteError && (
+            <p className="text-xs text-destructive">{deleteError}</p>
+          )}
+
+          {showEditForm && (
+            <EditRiskForm
+              risk={risk}
+              onClose={() => setShowEditForm(false)}
+              onSaved={onControlLinked}
+            />
+          )}
+
+          {!showEditForm && risk.description && (
             <p className="text-sm text-muted-foreground">{risk.description}</p>
           )}
 
@@ -579,6 +770,11 @@ export default function RisksPage() {
                       risk={risk}
                       onClose={() => setExpandedId(null)}
                       onControlLinked={() => {
+                        fetchRisks();
+                        window.dispatchEvent(new CustomEvent("grc:risk-controls-updated"));
+                      }}
+                      onDeleted={() => {
+                        setExpandedId(null);
                         fetchRisks();
                         window.dispatchEvent(new CustomEvent("grc:risk-controls-updated"));
                       }}

@@ -12,6 +12,7 @@ interface Evidence {
   sourceUrl: string;
   status: "collected" | "pending" | "overdue" | "stale" | "rejected";
   collectedAt: string;
+  validTo: string | null;
   collector: string;
   frameworks: string[];
 }
@@ -32,8 +33,24 @@ const SOURCE_ICONS: Record<Evidence["sourceType"], string> = {
   manual: "👤", automated: "🤖", integration: "🔗",
 };
 
+// Determine if evidence is overdue based on valid_to
+function isExpired(validTo: string | null): boolean {
+  if (!validTo) return false;
+  return new Date(validTo) < new Date();
+}
+
+function isExpiringSoon(validTo: string | null): boolean {
+  if (!validTo) return false;
+  const expiry = new Date(validTo);
+  const soon = new Date();
+  soon.setDate(soon.getDate() + 14);
+  return expiry >= new Date() && expiry <= soon;
+}
+
 // Map DB status values to UI status values
-function mapDbStatus(dbStatus: string | null): Evidence["status"] {
+function mapDbStatus(dbStatus: string | null, validTo: string | null): Evidence["status"] {
+  // If valid_to is in the past, mark as overdue regardless of stored status
+  if (isExpired(validTo)) return "overdue";
   switch (dbStatus) {
     case "approved": return "collected";
     case "expired": return "stale";
@@ -47,6 +64,7 @@ function mapDbStatus(dbStatus: string | null): Evidence["status"] {
 function mapDbEvidence(row: any): Evidence {
   const meta = row.metadata || {};
   const sourceMeta = row.source_metadata || {};
+  const validTo = row.valid_to ? String(row.valid_to).slice(0, 10) : null;
   return {
     id: row.id,
     evidenceId: row.evidence_id || `EVD-${row.id?.slice(0, 6).toUpperCase()}`,
@@ -56,8 +74,9 @@ function mapDbEvidence(row: any): Evidence {
     // control_code and source_url are stored in JSONB fields, not top-level columns
     controlCode: meta.control_code || "",
     sourceUrl: sourceMeta.source_url || "",
-    status: mapDbStatus(row.status),
+    status: mapDbStatus(row.status, row.valid_to),
     collectedAt: (row.collected_at || row.created_at || "").slice(0, 10),
+    validTo,
     collector: "Team member",
     frameworks: Array.isArray(meta.frameworks) ? meta.frameworks : [],
   };
@@ -79,6 +98,7 @@ function CreateEvidenceDialog({
     source_url: string;
     control_code: string;
     frameworks: string;
+    valid_to: string;
   }>({
     title: "",
     description: "",
@@ -86,6 +106,7 @@ function CreateEvidenceDialog({
     source_url: "",
     control_code: "",
     frameworks: "",
+    valid_to: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -104,6 +125,7 @@ function CreateEvidenceDialog({
           frameworks: form.frameworks
             ? form.frameworks.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
             : [],
+          valid_to: form.valid_to || null,
         }),
       });
       const data = await res.json();
@@ -190,6 +212,19 @@ function CreateEvidenceDialog({
           </div>
 
           <div>
+            <label className="block text-sm font-medium mb-1">Expiry Date (valid_to)</label>
+            <input
+              type="date"
+              value={form.valid_to}
+              onChange={(e) => setForm({ ...form, valid_to: e.target.value })}
+              className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              When this evidence expires (e.g., annual review, certificate expiry)
+            </p>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium mb-1">Description</label>
             <textarea
               value={form.description}
@@ -229,6 +264,7 @@ function CreateEvidenceDialog({
 export default function EvidencePage() {
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
   const [statusFilter, setStatusFilter] = useState<Evidence["status"] | "all">("all");
@@ -237,12 +273,15 @@ export default function EvidencePage() {
 
   const fetchEvidence = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const res = await fetch("/api/evidence");
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setEvidence((data.evidence || []).map(mapDbEvidence));
-    } catch {
+    } catch (err) {
       setEvidence([]);
+      setFetchError(err instanceof Error ? err.message : "Failed to load evidence");
     } finally {
       setLoading(false);
     }
@@ -279,6 +318,12 @@ export default function EvidencePage() {
           onClose={() => setShowCreate(false)}
           onCreated={() => { fetchEvidence(); window.dispatchEvent(new CustomEvent("grc:evidence-created")); }}
         />
+      )}
+
+      {fetchError && (
+        <div className="mb-4 p-3 rounded-md bg-orange-50 border border-orange-200 text-sm text-orange-700">
+          {fetchError}
+        </div>
       )}
 
       <div className="flex items-center justify-between mb-6">
@@ -414,6 +459,7 @@ export default function EvidencePage() {
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Control</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Source</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Collected</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Expires</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Frameworks</th>
               </tr>
@@ -466,6 +512,24 @@ export default function EvidencePage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{ev.collectedAt}</td>
+                  <td className="px-4 py-3 text-xs">
+                    {ev.validTo ? (
+                      <span
+                        className={
+                          isExpired(ev.validTo)
+                            ? "text-red-600 font-medium"
+                            : isExpiringSoon(ev.validTo)
+                            ? "text-amber-600 font-medium"
+                            : "text-muted-foreground"
+                        }
+                      >
+                        {isExpired(ev.validTo) ? "⚠ " : isExpiringSoon(ev.validTo) ? "⏰ " : ""}
+                        {ev.validTo}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground/50">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 w-fit ${STATUS_COLORS[ev.status]}`}>
                       <span>{STATUS_ICONS[ev.status]}</span>

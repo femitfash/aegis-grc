@@ -451,37 +451,63 @@ async function executeReadTool(
     }
 
     case "get_compliance_status": {
-      // Return realistic mock data (will be replaced with real queries once frameworks are seeded)
-      const mockStatus: Record<string, unknown> = {
-        SOC2: {
-          framework: "SOC 2 Type II",
-          readiness: 78,
-          totalRequirements: 60,
-          implemented: 47,
-          testing: 8,
-          notStarted: 5,
-          gaps: ["CC6.7 - Logical access controls", "CC9.2 - Vendor management", "A1.2 - Capacity monitoring"],
-        },
-        ISO27001: {
-          framework: "ISO 27001:2022",
-          readiness: 65,
-          totalRequirements: 93,
-          implemented: 60,
-          testing: 10,
-          notStarted: 23,
-          gaps: ["A.8.16 - Monitoring activities", "A.5.23 - Cloud security", "A.8.28 - Secure coding"],
-        },
-        NIST_CSF: {
-          framework: "NIST Cybersecurity Framework",
-          readiness: 71,
-          totalRequirements: 108,
-          implemented: 77,
-          testing: 14,
-          notStarted: 17,
-          gaps: ["PR.AC-5 - Network integrity", "DE.CM-4 - Malicious code detection"],
-        },
+      // Read real requirement statuses from the org's settings
+      const FRAMEWORK_CONFIGS: Record<string, { name: string; total: number }> = {
+        SOC2: { name: "SOC 2 Type II", total: 60 },
+        ISO27001: { name: "ISO 27001:2022", total: 93 },
+        NIST_CSF: { name: "NIST Cybersecurity Framework", total: 108 },
       };
-      return mockStatus[input.framework as string] || { error: "Unknown framework" };
+
+      const frameworkKey = (input.framework as string) || "";
+      const config = FRAMEWORK_CONFIGS[frameworkKey];
+      if (!config) return { error: "Unknown framework. Valid options: SOC2, ISO27001, NIST_CSF" };
+
+      try {
+        let requirementStatuses: Record<string, string> = {};
+
+        if (organizationId && admin) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: org } = await (admin as any)
+            .from("organizations")
+            .select("settings")
+            .eq("id", organizationId)
+            .single();
+
+          requirementStatuses = org?.settings?.requirement_statuses || {};
+        }
+
+        // Count statuses for this framework
+        const prefix = `${frameworkKey}-`;
+        const relevantEntries = Object.entries(requirementStatuses).filter(([key]) =>
+          key.startsWith(prefix)
+        );
+
+        const implemented = relevantEntries.filter(([, v]) => v === "implemented").length;
+        const partial = relevantEntries.filter(([, v]) => v === "partial").length;
+        const notApplicable = relevantEntries.filter(([, v]) => v === "not-applicable").length;
+        const notStarted = config.total - implemented - partial - notApplicable;
+        const readiness =
+          config.total > 0 ? Math.round((implemented / config.total) * 100) : 0;
+
+        // Identify gap requirement keys (not implemented and not marked n/a)
+        const gaps = relevantEntries
+          .filter(([, v]) => v !== "implemented" && v !== "not-applicable")
+          .map(([k]) => k.replace(prefix, ""))
+          .slice(0, 5);
+
+        return {
+          framework: config.name,
+          readiness,
+          totalRequirements: config.total,
+          implemented,
+          partial,
+          notStarted,
+          notApplicable,
+          gaps,
+        };
+      } catch {
+        return { error: "Failed to fetch compliance status" };
+      }
     }
 
     case "search_controls": {

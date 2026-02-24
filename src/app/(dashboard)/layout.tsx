@@ -80,9 +80,12 @@ export default function DashboardLayout({
         <div className="p-8">{children}</div>
       </main>
 
-      {/* Copilot Panel */}
+      {/* Copilot Panel — receives current page context so the AI can tailor suggestions */}
       {copilotOpen && (
-        <CopilotPanel onClose={() => setCopilotOpen(false)} />
+        <CopilotPanel
+          onClose={() => setCopilotOpen(false)}
+          context={{ page: pathname }}
+        />
       )}
     </div>
   );

@@ -1,10 +1,7 @@
 ---
 name: developer
 description: Acts as a Senior Full-Stack Developer for the GRC platform. Use for implementing features, writing code, fixing bugs, writing tests, and code reviews. Invoked when writing or modifying code.
-context: fork
-agent: general-purpose
-allowed-tools: Read, Glob, Grep, Write, Edit, Bash
-model: opus
+user-invokable: true
 ---
 
 # Senior Developer Agent

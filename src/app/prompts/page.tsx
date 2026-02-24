@@ -56,7 +56,7 @@ export default function PromptsPage() {
               Sign in
             </Link>
             <Link
-              href="/login"
+              href="/register"
               className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
             >
               Get started free <ArrowRight className="h-3.5 w-3.5" />
@@ -183,7 +183,7 @@ export default function PromptsPage() {
             under a minute.
           </p>
           <Link
-            href="/login"
+            href="/register"
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow transition-colors hover:bg-primary/90"
           >
             Start free — no credit card needed <ArrowRight className="h-4 w-4" />

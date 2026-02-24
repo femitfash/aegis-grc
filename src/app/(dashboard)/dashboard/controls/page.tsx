@@ -78,6 +78,183 @@ function mapDbControl(row: any): Control {
   };
 }
 
+// ─── Edit Control Panel ───────────────────────────────────────────────────────
+
+function EditControlPanel({
+  control,
+  onClose,
+  onSaved,
+}: {
+  control: Control;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    title: control.title,
+    control_type: control.type,
+    automation_level: control.automation,
+    effectiveness_rating: control.effectiveness,
+    status: control.status,
+    frameworks: control.frameworks.join(", "),
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/controls/${control.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title,
+          control_type: form.control_type,
+          automation_level: form.automation_level,
+          effectiveness_rating: Number(form.effectiveness_rating),
+          status: form.status,
+          frameworks: form.frameworks.split(",").map((f) => f.trim()).filter(Boolean),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || data.error || "Failed to update");
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`Delete control "${control.title}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const res = await fetch(`/api/controls/${control.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || data.error || "Failed to delete");
+      onSaved();
+      onClose();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete");
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <tr>
+      <td colSpan={9} className="p-0">
+        <div className="bg-muted/20 border-b px-6 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-semibold">Edit Control: {control.code}</h4>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="px-3 py-1 rounded-md border border-red-200 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+              <button
+                onClick={onClose}
+                className="px-3 py-1 rounded-md border text-xs hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+          {deleteError && <p className="text-xs text-destructive mb-2">{deleteError}</p>}
+          <form onSubmit={handleSave} className="grid grid-cols-3 gap-3">
+            <div className="col-span-3 sm:col-span-2">
+              <label className="block text-xs font-medium mb-1">Title</label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                className="w-full px-3 py-1.5 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1">Status</label>
+              <select
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}
+                className="w-full px-3 py-1.5 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="draft">Planned</option>
+                <option value="testing">Testing</option>
+                <option value="implemented">Implemented</option>
+                <option value="deprecated">Deprecated</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1">Type</label>
+              <select
+                value={form.control_type}
+                onChange={(e) => setForm({ ...form, control_type: e.target.value })}
+                className="w-full px-3 py-1.5 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {["technical", "administrative", "operational", "physical", "preventive", "detective", "corrective"].map((t) => (
+                  <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1">Automation</label>
+              <select
+                value={form.automation_level}
+                onChange={(e) => setForm({ ...form, automation_level: e.target.value })}
+                className="w-full px-3 py-1.5 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="manual">Manual</option>
+                <option value="semi-automated">Semi-automated</option>
+                <option value="automated">Automated</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1">Effectiveness (1-5)</label>
+              <input
+                type="number"
+                min={1}
+                max={5}
+                value={form.effectiveness_rating}
+                onChange={(e) => setForm({ ...form, effectiveness_rating: Number(e.target.value) })}
+                className="w-full px-3 py-1.5 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div className="col-span-3 sm:col-span-2">
+              <label className="block text-xs font-medium mb-1">Frameworks (comma-separated)</label>
+              <input
+                type="text"
+                value={form.frameworks}
+                onChange={(e) => setForm({ ...form, frameworks: e.target.value })}
+                className="w-full px-3 py-1.5 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div className="col-span-3">
+              {error && <p className="text-xs text-destructive mb-2">{error}</p>}
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {saving ? "Saving…" : "Save Changes"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function ControlsPage() {
   const [controls, setControls] = useState<Control[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,6 +262,7 @@ export default function ControlsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [frameworkFilter, setFrameworkFilter] = useState("all");
+  const [selectedControlId, setSelectedControlId] = useState<string | null>(null);
 
   // Add control form state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -438,62 +616,83 @@ export default function ControlsPage() {
             </thead>
             <tbody>
               {filtered.map((control, i) => (
-                <tr
-                  key={control.id}
-                  className={`border-b last:border-0 hover:bg-accent/30 cursor-pointer transition-colors ${
-                    i % 2 === 0 ? "" : "bg-muted/10"
-                  }`}
-                >
-                  <td className="px-4 py-3 font-mono text-xs font-semibold">{control.code}</td>
-                  <td className="px-4 py-3 font-medium">{control.title}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${
-                        TYPE_COLORS[control.type] || "bg-gray-100 text-gray-700"
-                      }`}
-                    >
-                      {control.type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="flex items-center gap-1 text-xs">
-                      <span>{AUTO_ICONS[control.automation] || "👤"}</span>
-                      <span className="text-muted-foreground capitalize">
-                        {control.automation.replace("-", " ")}
+                <>
+                  <tr
+                    key={control.id}
+                    onClick={() => setSelectedControlId((prev) => prev === control.id ? null : control.id)}
+                    className={`border-b hover:bg-accent/30 cursor-pointer transition-colors ${
+                      selectedControlId === control.id ? "bg-primary/5" : i % 2 === 0 ? "" : "bg-muted/10"
+                    }`}
+                  >
+                    <td className="px-4 py-3 font-mono text-xs font-semibold">
+                      <span className="flex items-center gap-1">
+                        {control.code}
+                        <span className="text-[10px] text-muted-foreground/50">
+                          {selectedControlId === control.id ? "▲" : "▼"}
+                        </span>
                       </span>
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <EffectivenessBar value={control.effectiveness} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                        STATUS_COLORS[control.status] || "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {STATUS_DISPLAY[control.status] ||
-                        control.status.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1 flex-wrap">
-                      {control.frameworks.length > 0 ? (
-                        control.frameworks.map((f) => (
-                          <span
-                            key={f}
-                            className="px-1.5 py-0.5 rounded text-xs bg-secondary text-secondary-foreground"
-                          >
-                            {f}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground text-xs">{control.owner}</td>
-                </tr>
+                    </td>
+                    <td className="px-4 py-3 font-medium">{control.title}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${
+                          TYPE_COLORS[control.type] || "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {control.type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="flex items-center gap-1 text-xs">
+                        <span>{AUTO_ICONS[control.automation] || "👤"}</span>
+                        <span className="text-muted-foreground capitalize">
+                          {control.automation.replace("-", " ")}
+                        </span>
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <EffectivenessBar value={control.effectiveness} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          STATUS_COLORS[control.status] || "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        {STATUS_DISPLAY[control.status] ||
+                          control.status.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1 flex-wrap">
+                        {control.frameworks.length > 0 ? (
+                          control.frameworks.map((f) => (
+                            <span
+                              key={f}
+                              className="px-1.5 py-0.5 rounded text-xs bg-secondary text-secondary-foreground"
+                            >
+                              {f}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">{control.owner}</td>
+                  </tr>
+                  {selectedControlId === control.id && (
+                    <EditControlPanel
+                      key={`edit-${control.id}`}
+                      control={control}
+                      onClose={() => setSelectedControlId(null)}
+                      onSaved={() => {
+                        setSelectedControlId(null);
+                        fetchControls();
+                      }}
+                    />
+                  )}
+                </>
               ))}
             </tbody>
           </table>

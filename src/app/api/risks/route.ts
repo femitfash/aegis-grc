@@ -60,7 +60,7 @@ export async function GET(_request: NextRequest) {
 
     // Compute scores application-side (avoids dependency on GENERATED ALWAYS AS columns)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const enriched = (risks || []).map((r: any) => ({
+    const scored = (risks || []).map((r: any) => ({
       ...r,
       inherent_score:
         typeof r.inherent_likelihood === "number" && typeof r.inherent_impact === "number"
@@ -73,9 +73,39 @@ export async function GET(_request: NextRequest) {
     }));
 
     // Sort by computed inherent_score descending (highest risk first)
-    enriched.sort((a: { inherent_score: number | null }, b: { inherent_score: number | null }) =>
+    scored.sort((a: { inherent_score: number | null }, b: { inherent_score: number | null }) =>
       (b.inherent_score ?? 0) - (a.inherent_score ?? 0)
     );
+
+    // Resolve owner names from the users table (same pattern as controls API)
+    const ownerIds = [
+      ...new Set(
+        scored
+          .map((r: { owner_id: string | null }) => r.owner_id)
+          .filter(Boolean)
+      ),
+    ] as string[];
+
+    let ownerMap: Record<string, string> = {};
+    if (ownerIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: owners } = await (admin as any)
+        .from("users")
+        .select("id, full_name, email")
+        .in("id", ownerIds);
+
+      ownerMap = Object.fromEntries(
+        (owners || []).map((u: { id: string; full_name: string | null; email: string }) => [
+          u.id,
+          u.full_name || u.email,
+        ])
+      );
+    }
+
+    const enriched = scored.map((r: { owner_id: string | null; [key: string]: unknown }) => ({
+      ...r,
+      owner_name: r.owner_id ? (ownerMap[r.owner_id] ?? "Team member") : "Unassigned",
+    }));
 
     return Response.json({ risks: enriched });
   } catch (err) {
