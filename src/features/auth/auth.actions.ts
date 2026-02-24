@@ -13,11 +13,25 @@ import type { AuthResult } from "@/types/auth.types";
 
 /**
  * Get the base URL for auth redirects.
+ * Priority: origin header → host headers → NEXT_PUBLIC_APP_URL → localhost
  */
 async function getBaseUrl(): Promise<string> {
   const headerStore = await headers();
+
+  // Most reliable: the Origin header sent by browsers on same-origin requests
   const origin = headerStore.get("origin");
-  return origin || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  if (origin) return origin;
+
+  // Fallback: reconstruct from Host / X-Forwarded-Host (works on Vercel, nginx, etc.)
+  const host =
+    headerStore.get("x-forwarded-host") || headerStore.get("host");
+  if (host) {
+    const proto = headerStore.get("x-forwarded-proto") || "https";
+    return `${proto}://${host}`;
+  }
+
+  // Last resort: explicit env var (must be set to production URL in Vercel dashboard)
+  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 }
 
 /**
