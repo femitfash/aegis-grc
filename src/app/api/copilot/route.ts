@@ -300,6 +300,122 @@ const tools: Anthropic.Tool[] = [
       required: ["title"],
     },
   },
+  {
+    name: "list_integrations",
+    description:
+      "List the organization's configured integrations (GitHub, Jira, Slack, etc.) and their connection status. Use when the user asks what integrations are set up, or before performing integration actions.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        provider: {
+          type: "string",
+          enum: ["github", "jira", "slack", "aws"],
+          description: "Optional: filter by provider",
+        },
+      },
+    },
+  },
+  {
+    name: "connect_integration",
+    description:
+      "Configure and connect a new integration (GitHub, Jira, or Slack). Use when the user wants to set up a new integration and provides credentials. Always confirm the details before saving — never store credentials without user approval.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        provider: {
+          type: "string",
+          enum: ["github", "jira", "slack"],
+          description: "The integration provider",
+        },
+        config: {
+          type: "object",
+          description: "Provider-specific config. GitHub: {org, repo?, token}. Jira: {host, email, token, project_key}. Slack: {bot_token, channel}",
+          additionalProperties: { type: "string" },
+        },
+      },
+      required: ["provider", "config"],
+    },
+  },
+  {
+    name: "import_github_alerts",
+    description:
+      "Import open Dependabot security alerts from GitHub as risks in the risk register. Deduplicates automatically. Use when the user wants to sync GitHub security findings.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        confirm: {
+          type: "boolean",
+          description: "Must be true — user must confirm the import",
+        },
+      },
+      required: ["confirm"],
+    },
+  },
+  {
+    name: "create_jira_issue",
+    description:
+      "Create a Jira issue from a risk. Use when the user wants to track a risk remediation in Jira. The Jira issue key will be saved back to the risk record.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        risk_id: {
+          type: "string",
+          description: "The risk ID (e.g., 'RISK-ABC123') to create a Jira issue for",
+        },
+        summary: {
+          type: "string",
+          description: "Jira issue title/summary",
+        },
+        description: {
+          type: "string",
+          description: "Detailed description of what needs to be done",
+        },
+        issue_type: {
+          type: "string",
+          enum: ["Task", "Bug", "Story", "Epic"],
+          description: "Jira issue type (default: Task)",
+        },
+        priority: {
+          type: "string",
+          enum: ["Highest", "High", "Medium", "Low", "Lowest"],
+          description: "Jira priority (default: Medium)",
+        },
+      },
+      required: ["summary"],
+    },
+  },
+  {
+    name: "send_slack_notification",
+    description:
+      "Send a notification to Slack. Use when the user wants to alert their team about a risk, compliance issue, or any GRC update.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        message: {
+          type: "string",
+          description: "The message to send",
+        },
+        risk_title: {
+          type: "string",
+          description: "Optional: risk title to include in a structured alert",
+        },
+        risk_id: {
+          type: "string",
+          description: "Optional: risk ID for context",
+        },
+        severity: {
+          type: "string",
+          enum: ["critical", "high", "medium", "low"],
+          description: "Optional: severity level for color coding",
+        },
+        channel: {
+          type: "string",
+          description: "Optional: override the default Slack channel",
+        },
+      },
+      required: ["message"],
+    },
+  },
 ];
 
 // Execute read-only tools server-side
@@ -309,7 +425,9 @@ async function executeReadTool(
   input: Record<string, any>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
-  organizationId: string | null
+  organizationId: string | null,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin?: any
 ): Promise<unknown> {
   switch (name) {
     case "search_risks": {
@@ -388,6 +506,22 @@ async function executeReadTool(
         return { controls: data || [] };
       } catch {
         return { controls: [] };
+      }
+    }
+
+    case "list_integrations": {
+      if (!organizationId || !admin) return { integrations: [], message: "No organization found" };
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let query = (admin as any)
+          .from("integrations")
+          .select("id, provider, name, status, last_sync_at, last_sync_status")
+          .eq("organization_id", organizationId);
+        if (input.provider) query = query.eq("provider", input.provider);
+        const { data } = await query;
+        return { integrations: data || [], count: (data || []).length };
+      } catch {
+        return { integrations: [], message: "Failed to list integrations" };
       }
     }
 
@@ -485,7 +619,7 @@ export async function POST(request: NextRequest) {
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
       for (const toolUse of toolUseBlocks) {
-        const WRITE_TOOLS = ["create_risk", "create_control", "create_framework", "update_requirement_status", "create_requirement", "link_risk_to_control", "create_evidence"];
+        const WRITE_TOOLS = ["create_risk", "create_control", "create_framework", "update_requirement_status", "create_requirement", "link_risk_to_control", "create_evidence", "connect_integration", "import_github_alerts", "create_jira_issue", "send_slack_notification"];
         if (WRITE_TOOLS.includes(toolUse.name)) {
           // Write tool — queue for user approval
           pendingActions.push({
@@ -498,6 +632,10 @@ export async function POST(request: NextRequest) {
             toolUse.name === "create_control" ? "control" :
             toolUse.name === "update_requirement_status" ? "requirement status update" :
             toolUse.name === "create_requirement" ? "requirement" :
+            toolUse.name === "connect_integration" ? "integration connection" :
+            toolUse.name === "import_github_alerts" ? "GitHub alert import" :
+            toolUse.name === "create_jira_issue" ? "Jira issue" :
+            toolUse.name === "send_slack_notification" ? "Slack notification" :
             "framework";
           toolResults.push({
             type: "tool_result",
@@ -511,7 +649,8 @@ export async function POST(request: NextRequest) {
             toolUse.name,
             toolUse.input as Record<string, unknown>,
             supabase,
-            organizationId
+            organizationId,
+            createAdminClient()
           );
           toolResults.push({
             type: "tool_result",

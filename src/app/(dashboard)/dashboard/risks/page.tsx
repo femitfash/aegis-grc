@@ -75,16 +75,29 @@ type SortField = "score" | "title" | "updatedAt" | "status";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapDbRisk(row: any): Risk {
+  // Compute scores app-side in case the DB doesn't have generated columns
+  const likelihood = row.inherent_likelihood ?? 0;
+  const impact = row.inherent_impact ?? 0;
+  const inherentScore = row.inherent_score ?? (likelihood * impact || 0);
+
+  const residualLikelihood = row.residual_likelihood ?? null;
+  const residualImpact = row.residual_impact ?? null;
+  const residualScore =
+    row.residual_score ??
+    (residualLikelihood !== null && residualImpact !== null
+      ? residualLikelihood * residualImpact
+      : null);
+
   return {
     id: row.risk_id || row.id,
     dbId: row.id,
     title: row.title || "Untitled Risk",
     description: row.description || "",
-    category: row.category || "Security",
-    likelihood: row.inherent_likelihood ?? 0,
-    impact: row.inherent_impact ?? 0,
-    score: row.inherent_score ?? 0,
-    residualScore: row.residual_score ?? null,
+    category: row.metadata?.category || row.category || "Security",
+    likelihood,
+    impact,
+    score: inherentScore,
+    residualScore,
     status: (row.status as Risk["status"]) || "identified",
     treatment: row.risk_response || "mitigate",
     owner: row.owner_name || "Team member",

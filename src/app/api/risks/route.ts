@@ -4,6 +4,12 @@ import { createAdminClient } from "@/shared/lib/supabase/admin";
 
 export async function GET(_request: NextRequest) {
   try {
+    // Guard: service role key must be configured
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error("GET /api/risks: SUPABASE_SERVICE_ROLE_KEY is not set");
+      return Response.json({ risks: [], error: "Server misconfiguration: SUPABASE_SERVICE_ROLE_KEY missing" }, { status: 500 });
+    }
+
     // Authenticate the user via session cookies
     const supabase = await createClient();
     const {
@@ -15,7 +21,6 @@ export async function GET(_request: NextRequest) {
     }
 
     // Use admin client to bypass RLS — safe because we've already authenticated above
-    // and we explicitly filter by the authenticated user's data
     const admin = createAdminClient();
 
     // Try to get the user's organization_id
@@ -28,14 +33,15 @@ export async function GET(_request: NextRequest) {
 
     const organizationId = userData?.organization_id ?? null;
 
-    // Fetch risks — filter by org if available, otherwise by owner_id
+    // Use select("*") so the query succeeds regardless of schema variations.
+    // GENERATED ALWAYS AS columns (inherent_score / residual_score) are included
+    // when they exist and simply absent when they don't — both cases are fine
+    // because we (re-)compute scores in the application layer below.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query = (admin as any)
       .from("risks")
-      .select(
-        "id, risk_id, title, inherent_likelihood, inherent_impact, inherent_score, status, owner_id, created_at, updated_at"
-      )
-      .order("inherent_score", { ascending: false });
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (organizationId) {
       query = query.eq("organization_id", organizationId);
@@ -47,13 +53,34 @@ export async function GET(_request: NextRequest) {
     const { data: risks, error } = await query;
 
     if (error) {
-      console.error("Risks fetch error:", error);
-      return Response.json({ risks: [], error: error.message });
+      console.error("Risks fetch error:", JSON.stringify(error));
+      // Return the actual error so callers can diagnose it
+      return Response.json({ risks: [], error: error.message }, { status: 500 });
     }
 
-    return Response.json({ risks: risks || [] });
+    // Compute scores application-side (avoids dependency on GENERATED ALWAYS AS columns)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const enriched = (risks || []).map((r: any) => ({
+      ...r,
+      inherent_score:
+        typeof r.inherent_likelihood === "number" && typeof r.inherent_impact === "number"
+          ? r.inherent_likelihood * r.inherent_impact
+          : null,
+      residual_score:
+        typeof r.residual_likelihood === "number" && typeof r.residual_impact === "number"
+          ? r.residual_likelihood * r.residual_impact
+          : null,
+    }));
+
+    // Sort by computed inherent_score descending (highest risk first)
+    enriched.sort((a: { inherent_score: number | null }, b: { inherent_score: number | null }) =>
+      (b.inherent_score ?? 0) - (a.inherent_score ?? 0)
+    );
+
+    return Response.json({ risks: enriched });
   } catch (err) {
-    console.error("GET /api/risks error:", err);
-    return Response.json({ risks: [], error: "Failed to fetch risks" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("GET /api/risks error:", msg);
+    return Response.json({ risks: [], error: msg }, { status: 500 });
   }
 }

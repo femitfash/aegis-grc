@@ -12,6 +12,7 @@ import {
   BarChart3,
   Globe,
   Clock,
+  GitBranch,
 } from "lucide-react";
 
 export default function Home() {
@@ -28,6 +29,7 @@ export default function Home() {
             <a href="#features" className="transition-colors hover:text-foreground">Features</a>
             <a href="#frameworks" className="transition-colors hover:text-foreground">Frameworks</a>
             <a href="#comparison" className="transition-colors hover:text-foreground">Compare</a>
+            <Link href="/prompts" className="transition-colors hover:text-foreground">Prompts</Link>
             <a href="#pricing" className="transition-colors hover:text-foreground">Pricing</a>
           </div>
           <div className="flex items-center gap-3">
@@ -53,7 +55,7 @@ export default function Home() {
         <div className="mx-auto max-w-4xl text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/50 px-4 py-1.5 text-xs font-medium text-muted-foreground">
             <Zap className="h-3.5 w-3.5 text-primary" />
-            AI-Native GRC Platform · SOC 2 · ISO 27001 · NIST · HIPAA
+            AI-Native GRC Platform · SOC 2 · ISO 27001 · NIST · GitHub · Jira · Slack
           </div>
 
           <h1 className="mb-6 text-4xl font-extrabold tracking-tight md:text-6xl lg:text-7xl">
@@ -127,13 +129,98 @@ export default function Home() {
             { value: "15 min", label: "Average setup time" },
             { value: "0 fields", label: "To log a risk" },
             { value: "10 free", label: "AI actions to start" },
-            { value: "SOC 2 · ISO · NIST", label: "Frameworks supported" },
+            { value: "GitHub · Jira · Slack", label: "Native integrations" },
           ].map((stat) => (
             <div key={stat.label} className="text-center">
               <div className="text-2xl font-bold text-primary md:text-3xl">{stat.value}</div>
               <div className="mt-1 text-sm text-muted-foreground">{stat.label}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ─── Prompts Preview ─────────────────────────────────── */}
+      <section className="border-y border-border/40 bg-muted/30 px-6 py-20">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-12 text-center">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-border/60 bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
+              ✨ Copilot Prompt Library
+            </div>
+            <h2 className="mb-3 text-3xl font-bold tracking-tight">
+              Zero forms. Just describe what you need.
+            </h2>
+            <p className="mx-auto max-w-xl text-muted-foreground">
+              Every action in Aegis can be done through conversation. Here are a few examples of what
+              you can say — no training required.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                icon: "🛡️",
+                category: "Risk Management",
+                prompt: "Register a risk: our S3 buckets may be publicly accessible, exposing customer data.",
+                result: "Creates a high-severity risk with likelihood/impact scoring",
+              },
+              {
+                icon: "📋",
+                category: "Compliance",
+                prompt: "What's our current SOC 2 Type II readiness? Which criteria are incomplete?",
+                result: "Shows completion % per Trust Services Criteria with gaps",
+              },
+              {
+                icon: "🔒",
+                category: "Controls",
+                prompt: "Create a preventive control for encrypting data at rest using AES-256.",
+                result: "Creates a control record linked to relevant frameworks",
+              },
+              {
+                icon: "📁",
+                category: "Evidence",
+                prompt: "Record evidence that we completed our annual pen test in January with no critical findings.",
+                result: "Creates an evidence record with test metadata attached",
+              },
+              {
+                icon: "🔗",
+                category: "Integrations",
+                prompt: "Import open Dependabot alerts from GitHub and create risks for critical ones.",
+                result: "Automatically syncs vulnerabilities from your repos",
+              },
+              {
+                icon: "📊",
+                category: "Reporting",
+                prompt: "We have a SOC 2 audit in 30 days. What do we still need and what evidence is missing?",
+                result: "Prioritized audit-prep checklist with evidence gaps",
+              },
+            ].map((item) => (
+              <div
+                key={item.category}
+                className="rounded-xl border bg-card p-5 shadow-sm"
+              >
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-lg">{item.icon}</span>
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    {item.category}
+                  </span>
+                </div>
+                <blockquote className="mb-3 rounded-lg border-l-2 border-primary/40 bg-muted/50 px-3 py-2 text-xs leading-relaxed text-muted-foreground italic">
+                  &ldquo;{item.prompt}&rdquo;
+                </blockquote>
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">→ </span>
+                  {item.result}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-10 text-center">
+            <Link
+              href="/prompts"
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-5 py-2.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent"
+            >
+              Browse all {27} prompts <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -189,6 +276,7 @@ export default function Home() {
                   "Risk reduction metrics, not just checkbox counts",
                   "Audit-ready trail with cryptographic verification",
                   "AI copilot is the primary interface, not a chatbot add-on",
+                  "Connect GitHub, Jira, and Slack in under 2 minutes",
                 ].map((gain) => (
                   <li key={gain} className="flex items-start gap-3">
                     <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -251,6 +339,12 @@ export default function Home() {
                 description:
                   "Use Aegis free for your first 10 AI actions. Then connect your own Anthropic API key for unlimited usage at cost. No vendor lock-in.",
               },
+              {
+                icon: GitBranch,
+                title: "Native Integrations",
+                description:
+                  "Connect GitHub to auto-import Dependabot security alerts as risks. Create Jira tickets from risks in one sentence. Send Slack alerts when critical risks are flagged.",
+              },
             ].map((feature) => (
               <div
                 key={feature.title}
@@ -280,9 +374,9 @@ export default function Home() {
             {[
               {
                 step: "01",
-                title: "Sign up and choose your frameworks",
+                title: "Sign up and connect your tools",
                 description:
-                  "Create a free account and select which compliance frameworks matter to your organization — SOC 2, ISO 27001, NIST CSF, HIPAA, or a custom framework. No setup wizard. No consultant.",
+                  "Create a free account, choose your compliance frameworks, and optionally connect GitHub, Jira, or Slack. No setup wizard. No consultant. Under 15 minutes start-to-finish.",
                 icon: Clock,
               },
               {
@@ -418,6 +512,13 @@ export default function Home() {
                   },
                   {
                     feature: "Custom frameworks",
+                    aegis: true,
+                    vanta: "Limited",
+                    drata: "Limited",
+                    thoropass: "Paid add-on",
+                  },
+                  {
+                    feature: "GitHub / Jira / Slack integrations",
                     aegis: true,
                     vanta: "Limited",
                     drata: "Limited",
@@ -572,6 +673,7 @@ export default function Home() {
                 <ul className="space-y-2 text-muted-foreground">
                   <li><a href="#features" className="hover:text-foreground">Features</a></li>
                   <li><a href="#frameworks" className="hover:text-foreground">Frameworks</a></li>
+                  <li><a href="#features" className="hover:text-foreground">Integrations</a></li>
                   <li><a href="#pricing" className="hover:text-foreground">Pricing</a></li>
                   <li><Link href="/login" className="hover:text-foreground">Sign in</Link></li>
                 </ul>

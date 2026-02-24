@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
+import { COPILOT_PROMPTS, PROMPT_CATEGORIES, type PromptCategory } from "@/features/copilot/data/prompts";
 
 interface Message {
   id: string;
@@ -43,6 +45,7 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPrompts, setShowPrompts] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -128,6 +131,10 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
         window.dispatchEvent(new CustomEvent("grc:risk-created")); // refresh risk list for residual scores
       } else if (action.name === "create_evidence") {
         window.dispatchEvent(new CustomEvent("grc:evidence-created"));
+      } else if (action.name === "connect_integration") {
+        window.dispatchEvent(new CustomEvent("grc:integration-updated"));
+      } else if (action.name === "import_github_alerts") {
+        window.dispatchEvent(new CustomEvent("grc:risk-created")); // refresh risk list
       }
 
       // Add a follow-up message
@@ -138,6 +145,10 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
         action.name === "create_requirement" ? "requirement" :
         action.name === "link_risk_to_control" ? "risk-control link" :
         action.name === "create_evidence" ? "evidence record" :
+        action.name === "connect_integration" ? "integration" :
+        action.name === "import_github_alerts" ? "GitHub alerts" :
+        action.name === "create_jira_issue" ? "Jira issue" :
+        action.name === "send_slack_notification" ? "Slack notification" :
         action.name.replace(/_/g, " ");
       const successMsg: Message = {
         id: generateId(),
@@ -317,13 +328,22 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
             </div>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-          aria-label="Close copilot"
-        >
-          ✕
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowPrompts(true)}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors border border-border/60"
+            title="Browse popular prompts"
+          >
+            ✨ Prompts
+          </button>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+            aria-label="Close copilot"
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
@@ -400,6 +420,18 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
           Powered by Claude · Aegis GRC
         </p>
       </div>
+
+      {/* Prompts Overlay */}
+      {showPrompts && (
+        <PromptsOverlay
+          onClose={() => setShowPrompts(false)}
+          onSelect={(prompt) => {
+            setInput(prompt);
+            setShowPrompts(false);
+            inputRef.current?.focus();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -531,6 +563,10 @@ function ActionCard({
     create_requirement: "Add Requirement",
     link_risk_to_control: "Link Control to Risk",
     create_evidence: "Create Evidence",
+    connect_integration: "Connect Integration",
+    import_github_alerts: "Import GitHub Alerts",
+    create_jira_issue: "Create Jira Issue",
+    send_slack_notification: "Send Slack Notification",
   };
 
   if (action.status === "executing") {
@@ -569,6 +605,10 @@ function ActionCard({
   const isRequirementCreate = action.name === "create_requirement";
   const isLinkRiskControl = action.name === "link_risk_to_control";
   const isCreateEvidence = action.name === "create_evidence";
+  const isConnectIntegration = action.name === "connect_integration";
+  const isImportGithub = action.name === "import_github_alerts";
+  const isCreateJira = action.name === "create_jira_issue";
+  const isSlackNotify = action.name === "send_slack_notification";
 
   return (
     <div className="mt-2 ml-2 p-4 rounded-xl border bg-card shadow-sm">
@@ -835,6 +875,98 @@ function ActionCard({
             )}
           </>
         )}
+
+        {/* Connect integration fields */}
+        {isConnectIntegration && (
+          <>
+            {Boolean(input.provider) && (
+              <div className="flex text-sm">
+                <span className="text-muted-foreground w-24 shrink-0">Provider:</span>
+                <span className="capitalize font-medium">{String(input.provider)}</span>
+              </div>
+            )}
+            {input.config && typeof input.config === "object" && (
+              <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                {Object.entries(input.config as Record<string, string>).map(([k, v]) => {
+                  const isSensitive = ["token", "secret", "password", "api_key"].some((s) => k.toLowerCase().includes(s));
+                  return (
+                    <div key={k} className="flex gap-2">
+                      <span className="font-mono">{k}:</span>
+                      <span>{isSensitive && v.length > 4 ? `••••${v.slice(-4)}` : v}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div className="text-xs text-amber-600 mt-1">
+              ⚠️ Credentials will be stored securely server-side.
+            </div>
+          </>
+        )}
+
+        {/* Import GitHub alerts fields */}
+        {isImportGithub && (
+          <div className="text-sm text-muted-foreground">
+            Fetch open Dependabot security alerts from GitHub and create risks for each finding. Duplicates are skipped automatically.
+          </div>
+        )}
+
+        {/* Create Jira issue fields */}
+        {isCreateJira && (
+          <>
+            {Boolean(input.summary) && (
+              <div className="flex text-sm">
+                <span className="text-muted-foreground w-24 shrink-0">Summary:</span>
+                <span className="font-medium">{String(input.summary)}</span>
+              </div>
+            )}
+            {Boolean(input.risk_id) && (
+              <div className="flex text-sm">
+                <span className="text-muted-foreground w-24 shrink-0">Risk:</span>
+                <span className="font-mono">{String(input.risk_id)}</span>
+              </div>
+            )}
+            {Boolean(input.issue_type) && (
+              <div className="flex text-sm">
+                <span className="text-muted-foreground w-24 shrink-0">Type:</span>
+                <span>{String(input.issue_type)}</span>
+              </div>
+            )}
+            {Boolean(input.priority) && (
+              <div className="flex text-sm">
+                <span className="text-muted-foreground w-24 shrink-0">Priority:</span>
+                <span>{String(input.priority)}</span>
+              </div>
+            )}
+            <div className="text-xs text-muted-foreground mt-1">
+              The Jira issue key will be saved back to the risk record.
+            </div>
+          </>
+        )}
+
+        {/* Send Slack notification fields */}
+        {isSlackNotify && (
+          <>
+            {Boolean(input.message) && (
+              <div className="flex text-sm">
+                <span className="text-muted-foreground w-24 shrink-0">Message:</span>
+                <span className="text-xs">{String(input.message)}</span>
+              </div>
+            )}
+            {Boolean(input.channel) && (
+              <div className="flex text-sm">
+                <span className="text-muted-foreground w-24 shrink-0">Channel:</span>
+                <span className="font-mono text-xs">{String(input.channel)}</span>
+              </div>
+            )}
+            {Boolean(input.severity) && (
+              <div className="flex text-sm">
+                <span className="text-muted-foreground w-24 shrink-0">Severity:</span>
+                <span className="capitalize">{String(input.severity)}</span>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <div className="flex gap-2">
@@ -845,6 +977,10 @@ function ActionCard({
           {isRequirementCreate ? "Add Requirement" :
            isLinkRiskControl ? "Link Control" :
            isCreateEvidence ? "Save Evidence" :
+           isConnectIntegration ? "Save & Connect" :
+           isImportGithub ? "Import Alerts" :
+           isCreateJira ? "Create Issue" :
+           isSlackNotify ? "Send Notification" :
            "Approve & Create"}
         </button>
         <button
@@ -853,6 +989,122 @@ function ActionCard({
         >
           Reject
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Prompts Overlay ──────────────────────────────────────────────────────────
+function PromptsOverlay({
+  onClose,
+  onSelect,
+}: {
+  onClose: () => void;
+  onSelect: (prompt: string) => void;
+}) {
+  const [selectedCategory, setSelectedCategory] = useState<PromptCategory>("All");
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    return COPILOT_PROMPTS.filter((p) => {
+      const matchesCat = selectedCategory === "All" || p.category === selectedCategory;
+      const q = search.toLowerCase();
+      const matchesSearch =
+        !q ||
+        p.title.toLowerCase().includes(q) ||
+        p.tags.some((t) => t.toLowerCase().includes(q));
+      return matchesCat && matchesSearch;
+    });
+  }, [selectedCategory, search]);
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    /* Backdrop */
+    <div
+      className="absolute inset-0 z-10 bg-background/95 backdrop-blur-sm flex flex-col"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between border-b px-4 py-3 shrink-0">
+        <div>
+          <p className="text-sm font-semibold">✨ Popular Prompts</p>
+          <p className="text-xs text-muted-foreground">Click a prompt to use it</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/prompts"
+            target="_blank"
+            className="text-xs text-primary hover:underline flex items-center gap-0.5"
+          >
+            View all →
+          </Link>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="px-4 py-3 border-b shrink-0">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search prompts…"
+          autoFocus
+          className="w-full rounded-lg border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+      </div>
+
+      {/* Category pills */}
+      <div className="flex gap-1.5 overflow-x-auto px-4 py-2 border-b shrink-0 scrollbar-hide">
+        {PROMPT_CATEGORIES.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setSelectedCategory(cat)}
+            className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              selectedCategory === cat
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-accent"
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* Prompt list */}
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+        {filtered.length === 0 ? (
+          <p className="py-8 text-center text-xs text-muted-foreground">No prompts match your search.</p>
+        ) : (
+          filtered.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => onSelect(p.prompt)}
+              className="w-full text-left rounded-xl border bg-card px-4 py-3 transition-colors hover:border-primary/40 hover:bg-primary/5 group"
+            >
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-xs">{p.categoryIcon}</span>
+                <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">
+                  {p.title}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                &ldquo;{p.prompt}&rdquo;
+              </p>
+            </button>
+          ))
+        )}
       </div>
     </div>
   );

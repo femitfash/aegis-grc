@@ -411,6 +411,327 @@ export async function POST(request: NextRequest) {
         return Response.json({ success: true, result: data, toolCallId });
       }
 
+      case "connect_integration": {
+        const provider = String(input.provider || "").toLowerCase();
+        const config = input.config as Record<string, string> | undefined;
+
+        if (!provider || !config) {
+          return Response.json({ error: "provider and config are required" }, { status: 400 });
+        }
+
+        const VALID_PROVIDERS = ["github", "jira", "slack"];
+        if (!VALID_PROVIDERS.includes(provider)) {
+          return Response.json({ error: "Unsupported provider" }, { status: 400 });
+        }
+
+        // Only admins/owners can connect integrations
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: callerRow } = await (admin as any)
+          .from("users")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        const callerRole = callerRow?.role as string | null;
+        if (!callerRole || !["admin", "owner"].includes(callerRole)) {
+          return Response.json(
+            { error: "Forbidden: only organization admins can manage integrations." },
+            { status: 403 }
+          );
+        }
+
+        const providerNames: Record<string, string> = { github: "GitHub", jira: "Jira", slack: "Slack" };
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (admin as any)
+          .from("integrations")
+          .upsert(
+            {
+              organization_id: organizationId,
+              provider,
+              name: providerNames[provider],
+              config,
+              status: "inactive",
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "organization_id,provider" }
+          )
+          .select("id, provider, name, status")
+          .single();
+
+        if (error) {
+          return Response.json({ error: "Failed to save integration", detail: error.message }, { status: 500 });
+        }
+
+        // Auto-test the connection immediately after saving
+        let testMessage = "Credentials saved.";
+        try {
+          const testRes = await fetch(
+            `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/integrations/${provider}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "test", integration_id: data?.id }),
+            }
+          );
+          const testData = await testRes.json() as { success?: boolean; message?: string; error?: string };
+          if (testData.success) {
+            testMessage = `✅ ${testData.message || "Connection verified successfully."}`;
+            // Mark as active
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (admin as any)
+              .from("integrations")
+              .update({ status: "active" })
+              .eq("id", data?.id);
+          } else {
+            testMessage = `⚠️ Credentials saved but connection test failed: ${testData.error || "Unknown error"}. Check your credentials on the Integrations page.`;
+          }
+        } catch {
+          testMessage = "Credentials saved. Visit the Integrations page to test the connection.";
+        }
+
+        await bumpCount();
+        return Response.json({
+          success: true,
+          result: data,
+          message: testMessage,
+          toolCallId,
+        });
+      }
+
+      case "import_github_alerts": {
+        // Proxy to the GitHub provider route logic inline
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: integration } = await (admin as any)
+          .from("integrations")
+          .select("id, config")
+          .eq("organization_id", organizationId)
+          .eq("provider", "github")
+          .single();
+
+        if (!integration) {
+          return Response.json({ error: "GitHub integration not configured. Please connect GitHub first." }, { status: 404 });
+        }
+
+        const ghRes = await fetch(new URL("/api/integrations/github", process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").toString(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Cookie: "" },
+        });
+
+        // Call the internal route directly via fetch — but we need auth cookies.
+        // Instead, replicate the logic: call GitHub API directly here.
+        const cfg = integration.config as Record<string, string>;
+        const token = cfg.token;
+        const org = cfg.org;
+        const repo = cfg.repo;
+
+        if (!token || !org) {
+          return Response.json({ error: "GitHub token and org are required. Please update your GitHub integration config." }, { status: 400 });
+        }
+
+        void ghRes; // discard the fetch above, we'll call directly
+
+        const headers = {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        };
+
+        const alertsUrl = repo
+          ? `https://api.github.com/repos/${org}/${repo}/dependabot/alerts?state=open&per_page=50`
+          : `https://api.github.com/orgs/${org}/dependabot/alerts?state=open&per_page=50`;
+
+        const alertsRes = await fetch(alertsUrl, { headers });
+        if (!alertsRes.ok) {
+          const err = await alertsRes.json().catch(() => ({}));
+          return Response.json({ error: (err as Record<string, string>).message || `GitHub API ${alertsRes.status}` }, { status: 400 });
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const alerts: any[] = await alertsRes.json();
+        let created = 0;
+        let skipped = 0;
+
+        for (const alert of alerts) {
+          if (alert.state !== "open" || alert.auto_dismissed_at) continue;
+
+          const severity = alert.security_vulnerability?.severity;
+          const scoreMap: Record<string, [number, number]> = {
+            critical: [5, 5], high: [4, 4], medium: [3, 3], low: [2, 2],
+          };
+          const [likelihood, impact] = scoreMap[severity] || [2, 2];
+          const pkg = alert.security_vulnerability?.package;
+          const advisory = alert.security_advisory;
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: existing } = await (admin as any)
+            .from("risks")
+            .select("id")
+            .eq("organization_id", organizationId)
+            .filter("metadata->>github_alert_number", "eq", String(alert.number))
+            .maybeSingle();
+
+          if (existing) { skipped++; continue; }
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (admin as any).from("risks").insert({
+            organization_id: organizationId,
+            risk_id: `RISK-GH${alert.number}`,
+            title: `[GitHub] ${advisory?.summary || `Vulnerability in ${pkg?.name || "dependency"}`}`,
+            description: advisory?.description || `Dependabot alert. Package: ${pkg?.name} (${pkg?.ecosystem}). Severity: ${severity}. CVE: ${advisory?.cve_id || "N/A"}`,
+            category: "security",
+            inherent_likelihood: likelihood,
+            inherent_impact: impact,
+            risk_response: "mitigate",
+            status: "identified",
+            owner_id: user.id,
+            metadata: {
+              github_alert_number: alert.number,
+              github_alert_url: alert.html_url,
+              severity,
+              package_name: pkg?.name,
+              cve_id: advisory?.cve_id,
+            },
+          });
+          created++;
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (admin as any)
+          .from("integrations")
+          .update({ last_sync_at: new Date().toISOString(), last_sync_status: "success", status: "active" })
+          .eq("id", integration.id);
+
+        await bumpCount();
+        return Response.json({
+          success: true,
+          result: { created, skipped, total: alerts.length },
+          toolCallId,
+        });
+      }
+
+      case "create_jira_issue": {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: jiraIntegration } = await (admin as any)
+          .from("integrations")
+          .select("id, config")
+          .eq("organization_id", organizationId)
+          .eq("provider", "jira")
+          .single();
+
+        if (!jiraIntegration) {
+          return Response.json({ error: "Jira integration not configured. Please connect Jira first." }, { status: 404 });
+        }
+
+        const jiraCfg = jiraIntegration.config as Record<string, string>;
+        const jiraHost = (jiraCfg.host || "").replace(/\/$/, "");
+        const authHeader = `Basic ${Buffer.from(`${jiraCfg.email}:${jiraCfg.token}`).toString("base64")}`;
+        const projectKey = jiraCfg.project_key;
+
+        const payload = {
+          fields: {
+            project: { key: projectKey },
+            summary: String(input.summary || "GRC Risk Remediation"),
+            description: {
+              version: 1,
+              type: "doc",
+              content: [{ type: "paragraph", content: [{ type: "text", text: String(input.description || input.summary || "") }] }],
+            },
+            issuetype: { name: String(input.issue_type || "Task") },
+            priority: { name: String(input.priority || "Medium") },
+          },
+        };
+
+        const jiraRes = await fetch(`${jiraHost}/rest/api/3/issue`, {
+          method: "POST",
+          headers: { Authorization: authHeader, Accept: "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!jiraRes.ok) {
+          const err = await jiraRes.json().catch(() => ({}));
+          return Response.json({ error: String((err as Record<string, string>).message || `Jira API ${jiraRes.status}`) }, { status: 400 });
+        }
+
+        const issue = await jiraRes.json() as { id: string; key: string };
+        const issueUrl = `${jiraHost}/browse/${issue.key}`;
+
+        // Store Jira issue key in risk.metadata if risk_id given
+        if (input.risk_id) {
+          const riskQuery = String(input.risk_id);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: riskRow } = await (admin as any)
+            .from("risks")
+            .select("id, metadata")
+            .eq("organization_id", organizationId)
+            .or(`risk_id.ilike.${riskQuery},id.eq.${riskQuery}`)
+            .maybeSingle();
+
+          if (riskRow) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (admin as any)
+              .from("risks")
+              .update({ metadata: { ...(riskRow.metadata || {}), jira_issue_key: issue.key, jira_issue_url: issueUrl } })
+              .eq("id", riskRow.id);
+          }
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (admin as any)
+          .from("integrations")
+          .update({ last_sync_at: new Date().toISOString(), last_sync_status: "success", status: "active" })
+          .eq("id", jiraIntegration.id);
+
+        await bumpCount();
+        return Response.json({ success: true, result: { issue_key: issue.key, issue_url: issueUrl }, toolCallId });
+      }
+
+      case "send_slack_notification": {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: slackIntegration } = await (admin as any)
+          .from("integrations")
+          .select("id, config")
+          .eq("organization_id", organizationId)
+          .eq("provider", "slack")
+          .single();
+
+        if (!slackIntegration) {
+          return Response.json({ error: "Slack integration not configured. Please connect Slack first." }, { status: 404 });
+        }
+
+        const slackCfg = slackIntegration.config as Record<string, string>;
+        const botToken = slackCfg.bot_token;
+        const channel = String(input.channel || slackCfg.channel);
+
+        const text = String(input.message || "GRC notification from Aegis");
+        const blocks = input.risk_title
+          ? [
+              { type: "section", text: { type: "mrkdwn", text: `*🛡️ Aegis GRC Alert*\n\n${text}` } },
+              ...(input.risk_id ? [{ type: "context", elements: [{ type: "mrkdwn", text: `Risk ID: \`${input.risk_id}\` | Severity: ${input.severity || "unset"}` }] }] : []),
+              { type: "divider" },
+            ]
+          : undefined;
+
+        const slackRes = await fetch("https://slack.com/api/chat.postMessage", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${botToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ channel, text, blocks }),
+        });
+        const slackData = await slackRes.json() as { ok: boolean; error?: string };
+
+        if (!slackData.ok) {
+          return Response.json({ error: slackData.error || "Slack API error" }, { status: 400 });
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (admin as any)
+          .from("integrations")
+          .update({ last_sync_at: new Date().toISOString(), last_sync_status: "success", status: "active" })
+          .eq("id", slackIntegration.id);
+
+        await bumpCount();
+        return Response.json({ success: true, result: { channel }, toolCallId });
+      }
+
       default:
         return Response.json({ error: `Unknown action: ${name}` }, { status: 400 });
     }
