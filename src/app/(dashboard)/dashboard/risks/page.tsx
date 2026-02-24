@@ -227,7 +227,9 @@ function RiskControlPanel({
               <p className="text-xs text-muted-foreground">Loading...</p>
             ) : linkedControls.length === 0 ? (
               <p className="text-xs text-muted-foreground italic">
-                No controls linked yet. Link a control below to start reducing this risk.
+                {orgControls.length === 0
+                  ? "No controls in your library yet. Add controls via the Copilot or the Controls page."
+                  : "No controls linked yet. Select a control below to start reducing this risk."}
               </p>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -284,7 +286,7 @@ function RiskControlPanel({
                 </button>
               </div>
             )}
-            {availableControls.length === 0 && !loadingControls && (
+            {availableControls.length === 0 && orgControls.length > 0 && !loadingControls && (
               <div className="mt-3 flex items-center gap-2">
                 <p className="text-xs text-muted-foreground">All controls are linked. Add more controls in the Controls page.</p>
                 <button
