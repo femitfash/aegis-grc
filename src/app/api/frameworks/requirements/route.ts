@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/shared/lib/supabase/server";
 import { createAdminClient } from "@/shared/lib/supabase/admin";
+import { logAudit } from "@/shared/lib/audit";
 
 // GET — return custom framework requirements stored in organizations.settings
 export async function GET(_request: NextRequest) {
@@ -119,6 +120,7 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: error.message }, { status: 500 });
     }
 
+    void logAudit({ organizationId: userData.organization_id, userId: user.id, action: "requirement.created", entityType: "framework_requirement", entityId: newReq.id, newValues: { framework_code, domain: domainName, code: reqCode, title } });
     return Response.json({ success: true, requirement: newReq });
   } catch {
     return Response.json({ error: "Failed to add requirement" }, { status: 500 });

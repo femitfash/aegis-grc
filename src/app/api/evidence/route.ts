@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/shared/lib/supabase/server";
 import { createAdminClient } from "@/shared/lib/supabase/admin";
+import { logAudit } from "@/shared/lib/audit";
 
 export async function GET(_request: NextRequest) {
   const supabase = await createClient();
@@ -100,5 +101,6 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Failed to create evidence", detail: error.message }, { status: 500 });
   }
 
+  void logAudit({ organizationId, userId: user.id, action: "evidence.created", entityType: "evidence", entityId: data.id, newValues: { title, source_type, valid_to: valid_to || null } });
   return Response.json({ success: true, result: data });
 }

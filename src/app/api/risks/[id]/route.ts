@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/shared/lib/supabase/server";
 import { createAdminClient } from "@/shared/lib/supabase/admin";
+import { logAudit } from "@/shared/lib/audit";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -90,6 +91,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     );
   }
 
+  void logAudit({ organizationId: existing.organization_id, userId: user.id, action: "risk.updated", entityType: "risk", entityId: id, oldValues: existing, newValues: allowedFields });
   return Response.json({ success: true, risk: data });
 }
 
@@ -151,5 +153,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteContext) {
     );
   }
 
+  void logAudit({ organizationId: existing.organization_id, userId: user.id, action: "risk.deleted", entityType: "risk", entityId: id, oldValues: existing });
   return Response.json({ success: true });
 }

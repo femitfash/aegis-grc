@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/shared/lib/supabase/server";
 import { createAdminClient } from "@/shared/lib/supabase/admin";
+import { logAudit } from "@/shared/lib/audit";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -100,6 +101,10 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     }
   }
 
+  // Fetch org for audit context
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: riskData } = await (admin as any).from("risks").select("organization_id").eq("id", riskId).single();
+  void logAudit({ organizationId: riskData?.organization_id ?? null, userId: user.id, action: "risk.control_linked", entityType: "risk", entityId: riskId, newValues: { control_id, notes: notes || null } });
   return Response.json({ success: true });
 }
 
@@ -126,5 +131,8 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: riskData2 } = await (admin as any).from("risks").select("organization_id").eq("id", riskId).single();
+  void logAudit({ organizationId: riskData2?.organization_id ?? null, userId: user.id, action: "risk.control_unlinked", entityType: "risk", entityId: riskId, oldValues: { control_id: controlId } });
   return Response.json({ success: true });
 }

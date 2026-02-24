@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/shared/lib/supabase/server";
 import { createAdminClient } from "@/shared/lib/supabase/admin";
+import { logAudit } from "@/shared/lib/audit";
 
 export async function GET(_request: NextRequest) {
   try {
@@ -136,6 +137,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    void logAudit({ organizationId: organizationId, userId: user.id, action: "control.created", entityType: "control", entityId: data.id, newValues: data });
     return Response.json({ success: true, control: data }, { status: 201 });
   } catch (err) {
     console.error("POST /api/controls error:", err);

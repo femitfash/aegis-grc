@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/shared/lib/supabase/server";
 import { createAdminClient } from "@/shared/lib/supabase/admin";
+import { logAudit } from "@/shared/lib/audit";
 
 const SENSITIVE_KEYS = ["token", "secret", "password", "api_key", "webhook_url", "client_secret"];
 
@@ -137,6 +138,7 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Failed to save integration", detail: error.message }, { status: 500 });
     }
 
+    void logAudit({ organizationId, userId: user.id, action: "integration.connected", entityType: "integration", entityId: data.id, newValues: { provider, name } });
     return Response.json({ integration: data }, { status: 201 });
   } catch (error) {
     console.error("POST /api/integrations error:", error);
@@ -175,6 +177,7 @@ export async function DELETE(request: NextRequest) {
       return Response.json({ error: "Failed to delete integration", detail: error.message }, { status: 500 });
     }
 
+    void logAudit({ organizationId, userId: user.id, action: "integration.disconnected", entityType: "integration", entityId: id, oldValues: { id } });
     return Response.json({ success: true });
   } catch (error) {
     console.error("DELETE /api/integrations error:", error);
