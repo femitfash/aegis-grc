@@ -132,7 +132,7 @@ export default function RootLayout({
         {/* Blocking script: apply saved theme before first paint to prevent flash */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var t=localStorage.getItem('aegis-theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(t==='dark'||(t!=='light'&&d)){document.documentElement.classList.add('dark')}})()`,
+            __html: `(function(){var t=localStorage.getItem('fastgrc-theme');if(t!=='light'){document.documentElement.classList.add('dark')}})()`,
           }}
         />
         {/* Schema.org structured data for LLM and search engine understanding */}

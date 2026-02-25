@@ -12,11 +12,11 @@ function applyTheme(theme: Theme) {
 }
 
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>("system");
+  const [theme, setThemeState] = useState<Theme>("dark");
 
   // Read from localStorage on mount
   useEffect(() => {
-    const stored = (localStorage.getItem("aegis-theme") as Theme) || "system";
+    const stored = (localStorage.getItem("fastgrc-theme") as Theme) || "dark";
     setThemeState(stored);
     applyTheme(stored);
   }, []);
@@ -33,7 +33,7 @@ export function useTheme() {
 
   const setTheme = (t: Theme) => {
     setThemeState(t);
-    localStorage.setItem("aegis-theme", t);
+    localStorage.setItem("fastgrc-theme", t);
     applyTheme(t);
   };
 
