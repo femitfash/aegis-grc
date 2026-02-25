@@ -2,16 +2,38 @@
 
 import { useState, useEffect } from "react";
 import { useTheme } from "@/shared/hooks/useTheme";
+import { DISPLAY_PRICES } from "@/shared/lib/stripe";
 
-type Tab = "organization" | "team" | "integrations" | "notifications" | "security" | "appearance" | "ai";
+type Tab = "organization" | "team" | "billing" | "integrations" | "notifications" | "security" | "appearance" | "ai";
 
-const TEAM_MEMBERS = [
-  { id: "1", name: "Alice Chen", email: "alice@example.com", role: "Compliance Manager", status: "active", lastActive: "2 hours ago", avatar: "AC" },
-  { id: "2", name: "Bob Smith", email: "bob@example.com", role: "Risk Owner", status: "active", lastActive: "1 day ago", avatar: "BS" },
-  { id: "3", name: "Carlos Rivera", email: "carlos@example.com", role: "Risk Owner", status: "active", lastActive: "3 hours ago", avatar: "CR" },
-  { id: "4", name: "Diana Lee", email: "diana@example.com", role: "Compliance Manager", status: "active", lastActive: "5 hours ago", avatar: "DL" },
-  { id: "5", name: "Eve Johnson", email: "eve@example.com", role: "Viewer", status: "pending", lastActive: "Never", avatar: "EJ" },
-];
+interface TeamMember {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: string;
+  last_active_at: string | null;
+  created_at: string;
+}
+
+interface PendingInvite {
+  id: string;
+  email: string;
+  role: string;
+  created_at: string;
+  expires_at: string;
+}
+
+interface Subscription {
+  plan: string;
+  billing_interval: string;
+  status: string;
+  seats_contributors: number;
+  seats_readonly: number;
+  current_period_end: string | null;
+  trial_end: string | null;
+  cancel_at_period_end: boolean;
+  stripe_customer_id: string | null;
+}
 
 const ROLES = ["Admin", "Compliance Manager", "Risk Owner", "Auditor", "Viewer"];
 
@@ -24,9 +46,22 @@ const INTEGRATIONS = [
   { id: "okta", name: "Okta", description: "Auto-collect access reviews and user activity", icon: "🔑", status: "available", detail: null },
 ];
 
+function fmt(n: number) {
+  return n % 1 === 0 ? `$${n}` : `$${n.toFixed(2)}`;
+}
+
+function planLabel(plan: string, status: string) {
+  if (status === "trialing") return "Growth (Trial)";
+  if (plan === "growth") return "Growth";
+  if (plan === "enterprise") return "Enterprise";
+  return "Builder (Free)";
+}
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("organization");
   const { theme, setTheme } = useTheme();
+
+  // Organization
   const [orgName, setOrgName] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
   const [orgIndustry, setOrgIndustry] = useState("Technology / SaaS");
@@ -34,17 +69,29 @@ export default function SettingsPage() {
   const [orgLoading, setOrgLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
+
+  // Team
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [teamLoading, setTeamLoading] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("Viewer");
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState("");
+  const [inviteSuccess, setInviteSuccess] = useState("");
 
-  // AI Copilot settings
+  // Billing
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  // AI Copilot
   const [aiUsage, setAiUsage] = useState<{ write_count: number; has_custom_key: boolean; limit: number } | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [apiKeySaved, setApiKeySaved] = useState(false);
   const [apiKeyError, setApiKeyError] = useState("");
   const [apiKeyLoading, setApiKeyLoading] = useState(false);
 
-  // Load organization details when the org tab is first shown
   useEffect(() => {
     if (activeTab === "organization") {
       fetch("/api/settings/organization")
@@ -59,6 +106,25 @@ export default function SettingsPage() {
         })
         .catch(() => {});
     }
+    if (activeTab === "team") {
+      setTeamLoading(true);
+      fetch("/api/team/members")
+        .then((r) => r.json())
+        .then((data) => {
+          setTeamMembers(data.members ?? []);
+          setPendingInvites(data.invites ?? []);
+        })
+        .catch(() => {})
+        .finally(() => setTeamLoading(false));
+    }
+    if (activeTab === "billing") {
+      setBillingLoading(true);
+      fetch("/api/billing/subscription")
+        .then((r) => r.json())
+        .then((data) => setSubscription(data.subscription))
+        .catch(() => {})
+        .finally(() => setBillingLoading(false));
+    }
     if (activeTab === "ai") {
       fetch("/api/settings/copilot")
         .then((r) => r.json())
@@ -66,6 +132,79 @@ export default function SettingsPage() {
         .catch(() => {});
     }
   }, [activeTab]);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const handleSave = async () => {
+    setOrgLoading(true);
+    setSaveError("");
+    try {
+      const res = await fetch("/api/settings/organization", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: orgName, slug: orgSlug, industry: orgIndustry, company_size: orgSize }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setOrgLoading(false);
+    }
+  };
+
+  const handleInvite = async () => {
+    if (!inviteEmail.trim()) return;
+    setInviteLoading(true);
+    setInviteError("");
+    setInviteSuccess("");
+    try {
+      const res = await fetch("/api/team/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send invite");
+      setInviteSuccess(`Invite sent to ${inviteEmail}`);
+      setInviteEmail("");
+      // Refresh invites list
+      fetch("/api/team/members")
+        .then((r) => r.json())
+        .then((d) => { setTeamMembers(d.members ?? []); setPendingInvites(d.invites ?? []); })
+        .catch(() => {});
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : "Failed to send invite");
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleManageBilling = async () => {
+    setPortalLoading(true);
+    try {
+      const res = await fetch("/api/billing/portal", { method: "POST" });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else alert(data.error || "Billing portal unavailable");
+    } catch {
+      alert("Could not open billing portal");
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
+  const handleUpgradeClick = async () => {
+    const res = await fetch("/api/billing/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contributors: 2, readonly_users: 0, interval: "year" }),
+    });
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+    else alert(data.error || "Checkout unavailable. Add STRIPE_SECRET_KEY to env vars.");
+  };
 
   const handleSaveApiKey = async () => {
     setApiKeyLoading(true);
@@ -89,34 +228,18 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSave = async () => {
-    setOrgLoading(true);
-    setSaveError("");
-    try {
-      const res = await fetch("/api/settings/organization", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: orgName,
-          slug: orgSlug,
-          industry: orgIndustry,
-          company_size: orgSize,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save");
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save");
-    } finally {
-      setOrgLoading(false);
-    }
-  };
+  // ── Monthly cost calculation ────────────────────────────────────────────────
+  const monthlyBillingCost = subscription
+    ? (subscription.seats_contributors ?? 0) *
+        (subscription.billing_interval === "year" ? DISPLAY_PRICES.contributor_annual : DISPLAY_PRICES.contributor_monthly) / 100 +
+      (subscription.seats_readonly ?? 0) *
+        (subscription.billing_interval === "year" ? DISPLAY_PRICES.readonly_annual : DISPLAY_PRICES.readonly_monthly) / 100
+    : 0;
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: "organization", label: "Organization", icon: "🏢" },
     { id: "team", label: "Team", icon: "👥" },
+    { id: "billing", label: "Billing", icon: "💳" },
     { id: "integrations", label: "Integrations", icon: "🔗" },
     { id: "notifications", label: "Notifications", icon: "🔔" },
     { id: "security", label: "Security", icon: "🔒" },
@@ -154,6 +277,8 @@ export default function SettingsPage() {
 
         {/* Tab content */}
         <div className="flex-1">
+
+          {/* ── Organization ─────────────────────────────────────────────── */}
           {activeTab === "organization" && (
             <div className="space-y-6">
               <div className="p-6 rounded-lg border bg-card">
@@ -171,7 +296,7 @@ export default function SettingsPage() {
                   <div>
                     <label className="block text-sm font-medium mb-1">Slug</label>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">aegis.app/</span>
+                      <span className="text-sm text-muted-foreground">fastgrc.ai/</span>
                       <input
                         type="text"
                         value={orgSlug}
@@ -207,122 +332,299 @@ export default function SettingsPage() {
                       <option>1000+ employees</option>
                     </select>
                   </div>
-                  {saveError && (
-                    <p className="text-sm text-destructive">{saveError}</p>
-                  )}
+                  {saveError && <p className="text-sm text-destructive">{saveError}</p>}
                   <button
                     onClick={handleSave}
                     disabled={orgLoading}
                     className={`px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50 ${
-                      saved
-                        ? "bg-green-600 text-white"
-                        : "bg-primary text-primary-foreground hover:bg-primary/90"
+                      saved ? "bg-green-600 text-white" : "bg-primary text-primary-foreground hover:bg-primary/90"
                     }`}
                   >
                     {saved ? "✅ Saved!" : orgLoading ? "Saving…" : "Save Changes"}
                   </button>
                 </div>
               </div>
-
-              <div className="p-6 rounded-lg border bg-card">
-                <h2 className="font-semibold mb-2">Subscription</h2>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-sm font-medium bg-primary/10 text-primary px-3 py-1 rounded-full">
-                      Pro Plan
-                    </span>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Unlimited risks, controls, and evidence · 10 team members · All frameworks
-                    </p>
-                  </div>
-                  <button className="px-4 py-2 rounded-md border text-sm hover:bg-accent transition-colors">
-                    Manage Billing
-                  </button>
-                </div>
-              </div>
             </div>
           )}
 
+          {/* ── Team ─────────────────────────────────────────────────────── */}
           {activeTab === "team" && (
             <div className="space-y-6">
               <div className="p-6 rounded-lg border bg-card">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-semibold">Team Members</h2>
-                  <span className="text-sm text-muted-foreground">{TEAM_MEMBERS.length} members</span>
+                  <span className="text-sm text-muted-foreground">
+                    {teamLoading ? "Loading…" : `${teamMembers.length} member${teamMembers.length !== 1 ? "s" : ""}`}
+                    {pendingInvites.length > 0 && ` · ${pendingInvites.length} pending`}
+                  </span>
                 </div>
 
                 {/* Invite form */}
-                <div className="flex gap-2 mb-4 p-3 rounded-md bg-muted/30 border border-dashed">
-                  <input
-                    type="email"
-                    placeholder="colleague@example.com"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  <select
-                    value={inviteRole}
-                    onChange={(e) => setInviteRole(e.target.value)}
-                    className="px-3 py-2 rounded-md border bg-background text-sm focus:outline-none"
-                  >
-                    {ROLES.map((r) => <option key={r}>{r}</option>)}
-                  </select>
-                  <button className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors whitespace-nowrap">
-                    Send Invite
-                  </button>
+                <div className="mb-4 p-3 rounded-md bg-muted/30 border border-dashed space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      placeholder="colleague@example.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleInvite()}
+                      className="flex-1 px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <select
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value)}
+                      className="px-3 py-2 rounded-md border bg-background text-sm focus:outline-none"
+                    >
+                      {ROLES.map((r) => <option key={r}>{r}</option>)}
+                    </select>
+                    <button
+                      onClick={handleInvite}
+                      disabled={inviteLoading || !inviteEmail.trim()}
+                      className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors whitespace-nowrap disabled:opacity-50"
+                    >
+                      {inviteLoading ? "Sending…" : "Send Invite"}
+                    </button>
+                  </div>
+                  {inviteSuccess && <p className="text-xs text-green-600">✅ {inviteSuccess}</p>}
+                  {inviteError && <p className="text-xs text-red-600">⚠ {inviteError}</p>}
+                  <p className="text-xs text-muted-foreground">
+                    Invite email sent from <span className="font-mono">support@fastgrc.ai</span> · expires in 7 days
+                  </p>
                 </div>
 
                 {/* Team table */}
-                <div className="rounded-md border overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-muted/30 border-b">
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Member</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Role</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Last Active</th>
-                        <th className="px-4 py-2"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {TEAM_MEMBERS.map((member) => (
-                        <tr key={member.id} className="border-t hover:bg-accent/20">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold">
-                                {member.avatar}
-                              </div>
-                              <div>
-                                <p className="font-medium">{member.name}</p>
-                                <p className="text-xs text-muted-foreground">{member.email}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="px-2 py-0.5 rounded text-xs bg-secondary">{member.role}</span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              member.status === "active" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
-                            }`}>
-                              {member.status === "active" ? "Active" : "Pending invite"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{member.lastActive}</td>
-                          <td className="px-4 py-3">
-                            <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                              Edit
-                            </button>
-                          </td>
+                {teamLoading ? (
+                  <div className="space-y-2">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-12 bg-muted/30 rounded animate-pulse" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-md border overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted/30 border-b">
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Member</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Role</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Last Active</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {teamMembers.map((member) => {
+                          const initials = (member.full_name || member.email)
+                            .split(" ")
+                            .map((p) => p[0])
+                            .join("")
+                            .toUpperCase()
+                            .slice(0, 2);
+                          const lastActive = member.last_active_at
+                            ? new Date(member.last_active_at).toLocaleDateString()
+                            : "Never";
+                          return (
+                            <tr key={member.id} className="border-t hover:bg-accent/20">
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold">
+                                    {initials}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">{member.full_name || "—"}</p>
+                                    <p className="text-xs text-muted-foreground">{member.email}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="px-2 py-0.5 rounded text-xs bg-secondary capitalize">
+                                  {member.role.replace(/_/g, " ")}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Active</span>
+                              </td>
+                              <td className="px-4 py-3 text-xs text-muted-foreground">{lastActive}</td>
+                            </tr>
+                          );
+                        })}
+                        {pendingInvites.map((invite) => (
+                          <tr key={invite.id} className="border-t hover:bg-accent/20 opacity-70">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-xs font-semibold">
+                                  ?
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground">{invite.email}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="px-2 py-0.5 rounded text-xs bg-secondary capitalize">
+                                {invite.role.replace(/_/g, " ")}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                                Pending invite
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground">
+                              Expires {new Date(invite.expires_at).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        ))}
+                        {teamMembers.length === 0 && pendingInvites.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                              No team members yet. Invite your first colleague above.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
+          {/* ── Billing ──────────────────────────────────────────────────── */}
+          {activeTab === "billing" && (
+            <div className="space-y-6">
+              {billingLoading ? (
+                <div className="p-6 rounded-lg border bg-card">
+                  <div className="h-5 w-32 bg-muted rounded animate-pulse mb-4" />
+                  <div className="h-4 w-64 bg-muted rounded animate-pulse" />
+                </div>
+              ) : subscription ? (
+                <>
+                  {/* Current plan */}
+                  <div className="p-6 rounded-lg border bg-card">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h2 className="font-semibold mb-1">Current Plan</h2>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-semibold px-3 py-1 rounded-full ${
+                            subscription.plan === "growth" ? "bg-primary/10 text-primary" :
+                            subscription.plan === "enterprise" ? "bg-purple-100 text-purple-700" :
+                            "bg-muted text-muted-foreground"
+                          }`}>
+                            {planLabel(subscription.plan, subscription.status)}
+                          </span>
+                          {subscription.status === "past_due" && (
+                            <span className="text-xs text-red-600 font-medium">⚠ Payment past due</span>
+                          )}
+                          {subscription.cancel_at_period_end && (
+                            <span className="text-xs text-yellow-600 font-medium">Cancels at period end</span>
+                          )}
+                        </div>
+                      </div>
+                      {subscription.stripe_customer_id ? (
+                        <button
+                          onClick={handleManageBilling}
+                          disabled={portalLoading}
+                          className="px-4 py-2 rounded-md border text-sm hover:bg-accent transition-colors disabled:opacity-50"
+                        >
+                          {portalLoading ? "Opening…" : "Manage Billing →"}
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {subscription.plan === "builder" && (
+                      <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-4 flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-medium">Unlock unlimited AI + all frameworks</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Upgrade to Growth — from $39/contributor/mo (annual) · 14-day free trial
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleUpgradeClick}
+                          className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+                        >
+                          Upgrade →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Seat summary */}
+                  {subscription.plan !== "builder" && (
+                    <div className="p-6 rounded-lg border bg-card">
+                      <h2 className="font-semibold mb-4">Seats &amp; Billing</h2>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Contributors</span>
+                          <span className="font-medium">
+                            {subscription.seats_contributors} ×{" "}
+                            {fmt(subscription.billing_interval === "year"
+                              ? DISPLAY_PRICES.contributor_annual / 100
+                              : DISPLAY_PRICES.contributor_monthly / 100)}/mo
+                          </span>
+                        </div>
+                        {subscription.seats_readonly > 0 && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Read-only users</span>
+                            <span className="font-medium">
+                              {subscription.seats_readonly} ×{" "}
+                              {fmt(subscription.billing_interval === "year"
+                                ? DISPLAY_PRICES.readonly_annual / 100
+                                : DISPLAY_PRICES.readonly_monthly / 100)}/mo
+                            </span>
+                          </div>
+                        )}
+                        <div className="border-t pt-3 flex items-center justify-between font-semibold">
+                          <span>Total</span>
+                          <span>{fmt(monthlyBillingCost)}/mo
+                            {subscription.billing_interval === "year" && (
+                              <span className="text-xs font-normal text-muted-foreground ml-1">
+                                ({fmt(monthlyBillingCost * 12)}/yr)
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        {subscription.billing_interval === "year" && (
+                          <p className="text-xs text-muted-foreground">Billed annually · ~20% savings vs monthly</p>
+                        )}
+                      </div>
+                      <div className="mt-4 flex gap-2">
+                        {subscription.stripe_customer_id && (
+                          <button
+                            onClick={handleManageBilling}
+                            disabled={portalLoading}
+                            className="px-4 py-2 rounded-md border text-sm hover:bg-accent transition-colors disabled:opacity-50"
+                          >
+                            {portalLoading ? "Opening…" : "Add / remove seats →"}
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Seat changes are prorated immediately by Stripe.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Period info */}
+                  {subscription.current_period_end && (
+                    <div className="p-4 rounded-lg border bg-card text-sm text-muted-foreground">
+                      {subscription.trial_end && new Date(subscription.trial_end) > new Date() ? (
+                        <>Trial ends <strong>{new Date(subscription.trial_end).toLocaleDateString()}</strong> — no charge until then.</>
+                      ) : (
+                        <>Next billing date: <strong>{new Date(subscription.current_period_end).toLocaleDateString()}</strong></>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="p-6 rounded-lg border bg-card text-center text-sm text-muted-foreground">
+                  No billing record found.
+                  <button onClick={handleUpgradeClick} className="ml-2 text-primary underline">Upgrade to Growth</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Integrations ─────────────────────────────────────────────── */}
           {activeTab === "integrations" && (
             <div className="space-y-4">
               <div className="p-4 rounded-lg border bg-primary/5 border-primary/20">
@@ -344,13 +646,9 @@ export default function SettingsPage() {
                         </div>
                       </div>
                       {integration.status === "connected" ? (
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 font-medium">
-                          Connected
-                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 font-medium">Connected</span>
                       ) : (
-                        <button className="px-3 py-1 rounded-md text-xs bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
-                          Connect
-                        </button>
+                        <button className="px-3 py-1 rounded-md text-xs bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">Connect</button>
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground">{integration.description}</p>
@@ -360,6 +658,7 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* ── Notifications ────────────────────────────────────────────── */}
           {activeTab === "notifications" && (
             <div className="p-6 rounded-lg border bg-card">
               <h2 className="font-semibold mb-4">Notification Preferences</h2>
@@ -377,16 +676,8 @@ export default function SettingsPage() {
                       <p className="font-medium text-sm">{label}</p>
                       <p className="text-xs text-muted-foreground">{description}</p>
                     </div>
-                    <button
-                      className={`w-10 h-6 rounded-full transition-colors ${
-                        defaultOn ? "bg-primary" : "bg-muted"
-                      } relative`}
-                    >
-                      <div
-                        className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${
-                          defaultOn ? "translate-x-5" : "translate-x-1"
-                        }`}
-                      />
+                    <button className={`w-10 h-6 rounded-full transition-colors ${defaultOn ? "bg-primary" : "bg-muted"} relative`}>
+                      <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${defaultOn ? "translate-x-5" : "translate-x-1"}`} />
                     </button>
                   </div>
                 ))}
@@ -394,6 +685,7 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* ── Security ─────────────────────────────────────────────────── */}
           {activeTab === "security" && (
             <div className="space-y-4">
               <div className="p-6 rounded-lg border bg-card">
@@ -412,10 +704,13 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between border-t pt-4">
                     <div>
                       <p className="font-medium text-sm">SSO / SAML</p>
-                      <p className="text-xs text-muted-foreground">Single sign-on with your identity provider</p>
+                      <p className="text-xs text-muted-foreground">Single sign-on with your identity provider · Enterprise only</p>
                     </div>
-                    <button className="px-3 py-1.5 rounded-md text-xs border hover:bg-accent transition-colors">
-                      Configure SSO
+                    <button
+                      onClick={() => setActiveTab("billing")}
+                      className="px-3 py-1.5 rounded-md text-xs border hover:bg-accent transition-colors"
+                    >
+                      Upgrade to Enterprise
                     </button>
                   </div>
                   <div className="flex items-center justify-between border-t pt-4">
@@ -437,31 +732,16 @@ export default function SettingsPage() {
                 <p className="text-sm text-muted-foreground mb-3">
                   All actions are recorded in an immutable audit log with cryptographic hash chain verification.
                 </p>
-                <div className="space-y-2">
-                  {[
-                    { action: "Risk created", user: "Alice Chen", time: "2 hours ago", detail: "RISK-012: S3 Public Access" },
-                    { action: "Evidence uploaded", user: "Bob Smith", time: "5 hours ago", detail: "EVD-012: Q4 Access Review" },
-                    { action: "Control status updated", user: "Carlos Rivera", time: "1 day ago", detail: "RA-05: Testing → Implemented" },
-                    { action: "User invited", user: "Alice Chen", time: "2 days ago", detail: "eve@example.com as Viewer" },
-                  ].map((log, i) => (
-                    <div key={i} className="flex items-center gap-3 text-xs py-2 border-b last:border-0">
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                      <span className="font-medium w-36">{log.action}</span>
-                      <span className="text-muted-foreground w-24">{log.user}</span>
-                      <span className="text-muted-foreground flex-1">{log.detail}</span>
-                      <span className="text-muted-foreground">{log.time}</span>
-                    </div>
-                  ))}
-                </div>
-                <button className="mt-3 text-sm text-primary hover:underline">
+                <a href="/dashboard/audit-log" className="text-sm text-primary hover:underline">
                   View full audit log →
-                </button>
+                </a>
               </div>
             </div>
           )}
+
+          {/* ── AI Copilot ───────────────────────────────────────────────── */}
           {activeTab === "ai" && (
             <div className="space-y-6">
-              {/* Usage meter */}
               <div className="p-6 rounded-lg border bg-card">
                 <h2 className="font-semibold mb-1">Free Usage</h2>
                 <p className="text-sm text-muted-foreground mb-4">
@@ -474,34 +754,46 @@ export default function SettingsPage() {
                         {aiUsage.has_custom_key ? (
                           <span className="text-green-600">✅ Unlimited — using your API key</span>
                         ) : (
-                          <span>
-                            <strong>{aiUsage.write_count}</strong> / {aiUsage.limit} free actions used
-                          </span>
+                          <span><strong>{aiUsage.write_count}</strong> / {aiUsage.limit} free actions used</span>
                         )}
                       </span>
                       {!aiUsage.has_custom_key && (
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          aiUsage.write_count >= aiUsage.limit
-                            ? "bg-red-100 text-red-700"
-                            : aiUsage.write_count >= aiUsage.limit * 0.7
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-green-100 text-green-700"
+                          aiUsage.write_count >= aiUsage.limit ? "bg-red-100 text-red-700" :
+                          aiUsage.write_count >= aiUsage.limit * 0.7 ? "bg-yellow-100 text-yellow-700" :
+                          "bg-green-100 text-green-700"
                         }`}>
-                          {aiUsage.write_count >= aiUsage.limit ? "Limit reached" :
-                            `${aiUsage.limit - aiUsage.write_count} remaining`}
+                          {aiUsage.write_count >= aiUsage.limit ? "Limit reached" : `${aiUsage.limit - aiUsage.write_count} remaining`}
                         </span>
                       )}
                     </div>
                     {!aiUsage.has_custom_key && (
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div
-                          className={`h-2 rounded-full transition-all ${
-                            aiUsage.write_count >= aiUsage.limit ? "bg-red-500" :
-                            aiUsage.write_count >= aiUsage.limit * 0.7 ? "bg-yellow-500" : "bg-green-500"
-                          }`}
-                          style={{ width: `${Math.min((aiUsage.write_count / aiUsage.limit) * 100, 100)}%` }}
-                        />
-                      </div>
+                      <>
+                        <div className="w-full bg-muted rounded-full h-2 mb-3">
+                          <div
+                            className={`h-2 rounded-full transition-all ${
+                              aiUsage.write_count >= aiUsage.limit ? "bg-red-500" :
+                              aiUsage.write_count >= aiUsage.limit * 0.7 ? "bg-yellow-500" : "bg-green-500"
+                            }`}
+                            style={{ width: `${Math.min((aiUsage.write_count / aiUsage.limit) * 100, 100)}%` }}
+                          />
+                        </div>
+                        {aiUsage.write_count >= aiUsage.limit * 0.7 && (
+                          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-center justify-between gap-3">
+                            <p className="text-xs text-muted-foreground">
+                              {aiUsage.write_count >= aiUsage.limit
+                                ? "You've hit the free limit. Upgrade for unlimited AI actions."
+                                : `Almost at the limit. Upgrade to Growth for unlimited AI.`}
+                            </p>
+                            <button
+                              onClick={handleUpgradeClick}
+                              className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+                            >
+                              Upgrade →
+                            </button>
+                          </div>
+                        )}
+                      </>
                     )}
                   </>
                 ) : (
@@ -509,7 +801,6 @@ export default function SettingsPage() {
                 )}
               </div>
 
-              {/* API Key */}
               <div className="p-6 rounded-lg border bg-card">
                 <h2 className="font-semibold mb-1">Your Anthropic API Key</h2>
                 <p className="text-sm text-muted-foreground mb-4">
@@ -542,9 +833,7 @@ export default function SettingsPage() {
                     onClick={handleSaveApiKey}
                     disabled={apiKeyLoading || !apiKey.trim()}
                     className={`px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50 ${
-                      apiKeySaved
-                        ? "bg-green-600 text-white"
-                        : "bg-primary text-primary-foreground hover:bg-primary/90"
+                      apiKeySaved ? "bg-green-600 text-white" : "bg-primary text-primary-foreground hover:bg-primary/90"
                     }`}
                   >
                     {apiKeySaved ? "✅ Saved!" : apiKeyLoading ? "Saving..." : "Save Key"}
@@ -553,7 +842,6 @@ export default function SettingsPage() {
                     <button
                       disabled={apiKeyLoading}
                       className="px-4 py-2 rounded-md text-sm border text-red-600 border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
-                      title="Remove API key (revert to free tier)"
                       onClick={() => {
                         setApiKey("");
                         fetch("/api/settings/copilot", {
@@ -574,6 +862,7 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* ── Appearance ───────────────────────────────────────────────── */}
           {activeTab === "appearance" && (
             <div className="space-y-6">
               <div className="p-6 rounded-lg border bg-card">
@@ -591,23 +880,20 @@ export default function SettingsPage() {
                       key={opt.value}
                       onClick={() => setTheme(opt.value)}
                       className={`flex-1 flex flex-col items-center gap-2 px-4 py-5 rounded-lg border-2 transition-colors ${
-                        theme === opt.value
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/40 hover:bg-accent/50"
+                        theme === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/40 hover:bg-accent/50"
                       }`}
                     >
                       <span className="text-2xl">{opt.icon}</span>
                       <span className="text-sm font-medium">{opt.label}</span>
                       <span className="text-xs text-muted-foreground">{opt.description}</span>
-                      {theme === opt.value && (
-                        <span className="text-xs text-primary font-medium">Active</span>
-                      )}
+                      {theme === opt.value && <span className="text-xs text-primary font-medium">Active</span>}
                     </button>
                   ))}
                 </div>
               </div>
             </div>
           )}
+
         </div>
       </div>
     </div>

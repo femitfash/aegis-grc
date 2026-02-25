@@ -85,7 +85,7 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
         const limitMsg: Message = {
           id: generateId(),
           role: "assistant",
-          content: `🔒 **Free tier limit reached**\n\nYou've used all 10 free AI actions. To continue:\n1. Go to **Settings → AI Copilot**\n2. Add your Anthropic API key from [console.anthropic.com](https://console.anthropic.com)\n3. Unlock unlimited usage`,
+          content: `🔒 **Free tier limit reached**\n\nYou've used all 10 free AI actions. You can:\n- **[Upgrade to Growth](/#pricing)** — unlimited AI, all frameworks, Slack/Jira/GitHub (14-day free trial)\n- **Add your own API key** → Settings → AI Copilot → paste your [Anthropic key](https://console.anthropic.com)`,
           timestamp: new Date(),
         };
         setMessages((prev) =>

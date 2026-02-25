@@ -1,0 +1,39 @@
+import { createClient } from "@/shared/lib/supabase/server";
+import { createAdminClient } from "@/shared/lib/supabase/admin";
+
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const admin = createAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: me } = await (admin as any)
+    .from("users")
+    .select("organization_id")
+    .eq("id", user.id)
+    .single();
+
+  if (!me?.organization_id) {
+    return Response.json({ members: [], invites: [] });
+  }
+
+  const [{ data: members }, { data: invites }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (admin as any)
+      .from("users")
+      .select("id, email, full_name, role, last_active_at, created_at")
+      .eq("organization_id", me.organization_id)
+      .order("created_at"),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (admin as any)
+      .from("invites")
+      .select("id, email, role, created_at, expires_at, accepted_at")
+      .eq("organization_id", me.organization_id)
+      .is("accepted_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at"),
+  ]);
+
+  return Response.json({ members: members ?? [], invites: invites ?? [] });
+}
