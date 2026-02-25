@@ -43,7 +43,7 @@ export function RegisterForm() {
       <div className="text-center space-y-2">
         <h1 className="text-2xl font-bold tracking-tight">Create an account</h1>
         <p className="text-sm text-muted-foreground">
-          Get started with Aegis GRC for your organization
+          Get started with FastGRC for your organization
         </p>
       </div>
 

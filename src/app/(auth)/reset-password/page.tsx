@@ -1,8 +1,8 @@
 import { ResetPasswordForm } from "@/features/auth/components/ResetPasswordForm";
 
 export const metadata = {
-  title: "Reset Password - Aegis GRC",
-  description: "Set a new password for your Aegis GRC account",
+  title: "Reset Password - FastGRC",
+  description: "Set a new password for your FastGRC account",
 };
 
 export default function ResetPasswordPage() {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ContactButton } from "./contact-button";
+import { BrandLogo } from "@/shared/components/brand-logo";
 import {
   Shield,
   MessageSquare,
@@ -23,9 +24,8 @@ export default function Home() {
       {/* ─── Nav ─────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-sm">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2">
-            <Shield className="h-7 w-7 text-primary" />
-            <span className="text-xl font-bold tracking-tight">Aegis GRC</span>
+          <div className="flex items-center">
+            <BrandLogo className="text-xl" />
           </div>
           <div className="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex">
             <a href="#features" className="transition-colors hover:text-foreground">Features</a>
@@ -67,7 +67,7 @@ export default function Home() {
           </h1>
 
           <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground md:text-xl">
-            Aegis is the first GRC platform where AI is the primary interface.
+            FastGRC is the first GRC platform where AI is the primary interface.
             Log risks in plain English, track frameworks automatically, and get
             audit-ready — in minutes, not months.
           </p>
@@ -94,7 +94,7 @@ export default function Home() {
               <span className="h-3 w-3 rounded-full bg-red-500/70" />
               <span className="h-3 w-3 rounded-full bg-yellow-500/70" />
               <span className="h-3 w-3 rounded-full bg-green-500/70" />
-              <span className="ml-3 text-xs text-muted-foreground">Aegis Copilot</span>
+              <span className="ml-3 text-xs text-muted-foreground">FastGRC Copilot</span>
             </div>
             <div className="space-y-4 p-6 text-left text-sm">
               <div className="flex gap-3">
@@ -152,7 +152,7 @@ export default function Home() {
               Zero forms. Just describe what you need.
             </h2>
             <p className="mx-auto max-w-xl text-muted-foreground">
-              Every action in Aegis can be done through conversation. Here are a few examples of what
+              Every action in FastGRC can be done through conversation. Here are a few examples of what
               you can say — no training required.
             </p>
           </div>
@@ -267,7 +267,7 @@ export default function Home() {
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-8">
               <div className="mb-6 flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-primary" />
-                <span className="font-semibold text-primary">Aegis GRC</span>
+                <span className="font-semibold text-primary">FastGRC</span>
               </div>
               <ul className="space-y-4 text-sm text-muted-foreground">
                 {[
@@ -315,7 +315,7 @@ export default function Home() {
                 icon: TrendingDown,
                 title: "Zero-Field Risk Entry",
                 description:
-                  "Say 'our AWS S3 buckets might be public.' Aegis extracts title, description, likelihood, impact score, and suggests a mitigation control — automatically.",
+                  "Say 'our AWS S3 buckets might be public.' FastGRC extracts title, description, likelihood, impact score, and suggests a mitigation control — automatically.",
               },
               {
                 icon: FileCheck,
@@ -339,7 +339,7 @@ export default function Home() {
                 icon: Globe,
                 title: "Bring Your Own API Key",
                 description:
-                  "Use Aegis free for your first 10 AI actions. Then connect your own Anthropic API key for unlimited usage at cost. No vendor lock-in.",
+                  "Use FastGRC free for your first 10 AI actions. Then connect your own Anthropic API key for unlimited usage at cost. No vendor lock-in.",
               },
               {
                 icon: GitBranch,
@@ -385,7 +385,7 @@ export default function Home() {
                 step: "02",
                 title: "Describe your risks in plain English",
                 description:
-                  "Open the AI copilot and type what you're worried about. 'Our third-party vendors don't have security questionnaires.' Aegis creates a properly scored risk with suggested controls.",
+                  "Open the AI copilot and type what you're worried about. 'Our third-party vendors don't have security questionnaires.' FastGRC creates a properly scored risk with suggested controls.",
                 icon: MessageSquare,
               },
               {
@@ -457,7 +457,7 @@ export default function Home() {
         <div className="mx-auto max-w-5xl">
           <div className="mb-16 text-center">
             <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
-              How Aegis compares to Vanta, Drata & Thoropass
+              How FastGRC compares to Vanta, Drata & Thoropass
             </h2>
             <p className="text-muted-foreground">
               Other GRC platforms bolt AI on as a sidebar. We built AI as the foundation.
@@ -469,7 +469,7 @@ export default function Home() {
               <thead>
                 <tr className="border-b border-border bg-muted/50">
                   <th className="px-6 py-4 text-left font-medium text-muted-foreground">Feature</th>
-                  <th className="px-6 py-4 text-center font-semibold text-primary">Aegis GRC</th>
+                  <th className="px-6 py-4 text-center font-semibold text-primary">FastGRC</th>
                   <th className="px-6 py-4 text-center font-medium text-muted-foreground">Vanta</th>
                   <th className="px-6 py-4 text-center font-medium text-muted-foreground">Drata</th>
                   <th className="px-6 py-4 text-center font-medium text-muted-foreground">Thoropass</th>
@@ -612,7 +612,7 @@ export default function Home() {
                   {[
                     "Dashboard: risks, controls, evidence & audit log",
                     "Choose 1 framework: SOC 2, ISO 27001, NIST CSF, or HIPAA",
-                    "PDF exports (Aegis watermark)",
+                    "PDF exports (FastGRC watermark)",
                     "Data stored in your preferred region (EU / US)",
                     "No integrations on free plan",
                     "Upgrade anytime — data carries over",
@@ -753,7 +753,7 @@ export default function Home() {
               {[
                 {
                   q: `What does "Unlimited AI Copilot (fair use)" mean?`,
-                  a: `On the Growth plan, AI sessions are unlimited for normal team use. Fair use means we reserve the right to throttle accounts sending thousands of automated requests — something that never affects teams using Aegis the way it's designed. Day-to-day copilot conversations, risk creation, and report generation all count as normal use.`,
+                  a: `On the Growth plan, AI sessions are unlimited for normal team use. Fair use means we reserve the right to throttle accounts sending thousands of automated requests — something that never affects teams using FastGRC the way it's designed. Day-to-day copilot conversations, risk creation, and report generation all count as normal use.`,
                 },
                 {
                   q: "Why does Growth cost $245 minimum?",
@@ -820,7 +820,7 @@ export default function Home() {
             <div>
               <div className="mb-3 flex items-center gap-2">
                 <Shield className="h-5 w-5 text-primary" />
-                <span className="font-bold">Aegis GRC</span>
+                <span className="font-bold">FastGRC</span>
               </div>
               <p className="max-w-xs text-sm text-muted-foreground">
                 The AI-native GRC platform. Manage SOC 2, ISO 27001, NIST, and HIPAA compliance
@@ -861,7 +861,7 @@ export default function Home() {
 
           <div className="border-t border-border pt-8 text-center text-xs text-muted-foreground">
             <p>
-              © {new Date().getFullYear()} Aegis GRC. Built for security teams that value their time.
+              © {new Date().getFullYear()} FastGRC. Built for security teams that value their time.
             </p>
           </div>
         </div>

@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Shield, ArrowRight, Search, Copy, CheckCircle, ExternalLink } from "lucide-react";
+import { ArrowRight, Search, Copy, CheckCircle, ExternalLink } from "lucide-react";
+import { BrandLogo } from "@/shared/components/brand-logo";
 import { COPILOT_PROMPTS, PROMPT_CATEGORIES, type PromptCategory } from "@/features/copilot/data/prompts";
 
 export default function PromptsPage() {
@@ -44,9 +45,8 @@ export default function PromptsPage() {
       {/* Nav */}
       <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-sm">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <Shield className="h-7 w-7 text-primary" />
-            <span className="text-xl font-bold tracking-tight">Aegis GRC</span>
+          <Link href="/" className="flex items-center">
+            <BrandLogo className="text-xl" />
           </Link>
           <div className="flex items-center gap-3">
             <Link
@@ -126,7 +126,7 @@ export default function PromptsPage() {
             </ul>
 
             <div className="mt-8 rounded-xl border border-primary/20 bg-primary/5 p-4">
-              <p className="text-sm font-semibold">Try it in Aegis</p>
+              <p className="text-sm font-semibold">Try it in FastGRC</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Copy a prompt, open the Copilot panel, and paste it in. No setup needed.
               </p>
@@ -179,7 +179,7 @@ export default function PromptsPage() {
         <div className="mx-auto max-w-2xl">
           <h2 className="mb-3 text-2xl font-bold">Ready to automate your GRC program?</h2>
           <p className="mb-6 text-muted-foreground">
-            These prompts work instantly in Aegis GRC. Sign up free and run your first prompt in
+            These prompts work instantly in FastGRC. Sign up free and run your first prompt in
             under a minute.
           </p>
           <Link
@@ -262,7 +262,7 @@ function PromptCard({
         <Link
           href="/login"
           className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          title="Try in Aegis"
+          title="Try in FastGRC"
         >
           <ExternalLink className="h-3 w-3" /> Try
         </Link>

@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
               { name: "message", value: message || "" },
             ],
             context: {
-              pageUri: process.env.NEXT_PUBLIC_APP_URL || "https://aegisgrc.com",
-              pageName: "Aegis GRC – Talk to Sales",
+              pageUri: process.env.NEXT_PUBLIC_APP_URL || "https://fastgrc.ai",
+              pageName: "FastGRC – Talk to Sales",
             },
           }),
         }

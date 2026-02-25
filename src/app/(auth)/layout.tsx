@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "@/shared/components/brand-logo";
 
 export default function AuthLayout({
   children,
@@ -10,11 +11,8 @@ export default function AuthLayout({
       {/* Top bar with brand */}
       <header className="border-b">
         <div className="container mx-auto px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-2xl font-bold">Aegis</span>
-            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">
-              GRC
-            </span>
+          <Link href="/" className="flex items-center">
+            <BrandLogo className="text-2xl" />
           </Link>
         </div>
       </header>
@@ -27,7 +25,7 @@ export default function AuthLayout({
       {/* Footer */}
       <footer className="border-t py-4">
         <div className="container mx-auto px-6 text-center text-sm text-muted-foreground">
-          Aegis GRC Platform &mdash; Copilot-first Governance, Risk &amp;
+          FastGRC Platform &mdash; Copilot-first Governance, Risk &amp;
           Compliance
         </div>
       </footer>

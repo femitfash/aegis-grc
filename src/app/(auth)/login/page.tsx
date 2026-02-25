@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { LoginForm } from "@/features/auth/components/LoginForm";
 
 export const metadata = {
-  title: "Sign In - Aegis GRC",
-  description: "Sign in to your Aegis GRC account",
+  title: "Sign In - FastGRC",
+  description: "Sign in to your FastGRC account",
 };
 
 export default function LoginPage() {

@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         const result = await postSlackMessage(
           botToken,
           targetChannel,
-          "✅ Aegis GRC is connected! This is a test message from your GRC Copilot."
+          "✅ FastGRC is connected! This is a test message from your GRC Copilot."
         );
         if (!result.ok) {
           return Response.json(
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       }
 
       case "notify": {
-        const notifyText = message || (risk_title ? `🚨 New risk flagged: *${risk_title}*` : "GRC notification from Aegis");
+        const notifyText = message || (risk_title ? `🚨 New risk flagged: *${risk_title}*` : "GRC notification from FastGRC");
 
         const severityColor =
           severity === "critical" || severity === "high" ? "#e53e3e"
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
                 type: "section",
                 text: {
                   type: "mrkdwn",
-                  text: `*🛡️ Aegis GRC Alert*\n\n${notifyText}`,
+                  text: `*🛡️ FastGRC Alert*\n\n${notifyText}`,
                 },
               },
               ...(risk_id

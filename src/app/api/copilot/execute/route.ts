@@ -702,10 +702,10 @@ export async function POST(request: NextRequest) {
         const botToken = slackCfg.bot_token;
         const channel = String(input.channel || slackCfg.channel);
 
-        const text = String(input.message || "GRC notification from Aegis");
+        const text = String(input.message || "GRC notification from FastGRC");
         const blocks = input.risk_title
           ? [
-              { type: "section", text: { type: "mrkdwn", text: `*🛡️ Aegis GRC Alert*\n\n${text}` } },
+              { type: "section", text: { type: "mrkdwn", text: `*🛡️ FastGRC Alert*\n\n${text}` } },
               ...(input.risk_id ? [{ type: "context", elements: [{ type: "mrkdwn", text: `Risk ID: \`${input.risk_id}\` | Severity: ${input.severity || "unset"}` }] }] : []),
               { type: "divider" },
             ]

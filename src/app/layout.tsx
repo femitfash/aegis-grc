@@ -4,22 +4,22 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://aegisgrc.com";
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://fastgrc.ai";
 
 // Safe URL factory — avoids Turbopack "module factory" crash if env var is malformed
 function toURL(href: string): URL {
   try {
     return new URL(href);
   } catch {
-    return new URL("https://aegisgrc.com");
+    return new URL("https://fastgrc.ai");
   }
 }
 
 export const metadata: Metadata = {
   metadataBase: toURL(siteUrl),
   title: {
-    default: "Aegis GRC — AI-Powered Compliance Platform",
-    template: "%s | Aegis GRC",
+    default: "FastGRC — AI-Powered Compliance Platform",
+    template: "%s | FastGRC",
   },
   description:
     "The copilot-first GRC platform. Manage SOC 2, ISO 27001, NIST CSF, and HIPAA compliance through conversation — not forms. Zero setup, AI-powered risk management, 15-minute time to value.",
@@ -42,16 +42,16 @@ export const metadata: Metadata = {
     "Vanta alternative",
     "Drata alternative",
   ],
-  authors: [{ name: "Aegis GRC", url: siteUrl }],
-  creator: "Aegis GRC",
-  publisher: "Aegis GRC",
+  authors: [{ name: "FastGRC", url: siteUrl }],
+  creator: "FastGRC",
+  publisher: "FastGRC",
   category: "Technology",
   openGraph: {
     type: "website",
     locale: "en_US",
     url: siteUrl,
-    siteName: "Aegis GRC",
-    title: "Aegis GRC — AI-Powered Compliance Platform",
+    siteName: "FastGRC",
+    title: "FastGRC — AI-Powered Compliance Platform",
     description:
       "Manage SOC 2, ISO 27001, NIST, and HIPAA compliance through conversation — not 50-field forms. The AI-native GRC platform with 15-minute setup.",
     images: [
@@ -59,13 +59,13 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Aegis GRC - Copilot-first compliance platform",
+        alt: "FastGRC - Copilot-first compliance platform",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Aegis GRC — AI-Powered Compliance Platform",
+    title: "FastGRC — AI-Powered Compliance Platform",
     description:
       "Manage compliance through conversation, not forms. SOC 2, ISO 27001, NIST, HIPAA. Free tier. 15-minute setup.",
     images: ["/og-image.png"],
@@ -95,7 +95,7 @@ export default function RootLayout({
   const schemaOrg = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "Aegis GRC",
+    name: "FastGRC",
     url: siteUrl,
     description:
       "AI-powered Governance, Risk, and Compliance (GRC) platform. Manage SOC 2, ISO 27001, NIST CSF, and HIPAA compliance through conversational AI. Zero-field risk entry, immutable audit trail, and 15-minute setup.",
@@ -121,7 +121,7 @@ export default function RootLayout({
     ],
     softwareHelp: {
       "@type": "CreativeWork",
-      name: "Aegis GRC Documentation",
+      name: "FastGRC Documentation",
     },
     screenshot: `${siteUrl}/og-image.png`,
   };

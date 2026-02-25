@@ -405,7 +405,7 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
           </button>
         </form>
         <p className="text-xs text-muted-foreground mt-2 text-center">
-          Powered by Claude · Aegis GRC
+          Powered by Claude · FastGRC
         </p>
       </div>
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BrandLogo } from "@/shared/components/brand-logo";
 import { CopilotPanel } from "@/features/copilot/components/CopilotPanel";
 import { UserMenu } from "@/features/auth/components/UserMenu";
 
@@ -33,11 +34,8 @@ export default function DashboardLayout({
       {/* Sidebar */}
       <aside className="w-64 border-r bg-card flex flex-col">
         <div className="p-4 border-b">
-          <Link href="/dashboard" className="flex items-center gap-2" suppressHydrationWarning>
-            <span className="text-2xl font-bold">Aegis</span>
-            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-              GRC
-            </span>
+          <Link href="/dashboard" className="flex items-center" suppressHydrationWarning>
+            <BrandLogo className="text-2xl" />
           </Link>
         </div>
 
