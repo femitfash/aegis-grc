@@ -802,7 +802,7 @@ export default function SettingsPage() {
               </div>
 
               <div className="p-6 rounded-lg border bg-card">
-                <h2 className="font-semibold mb-1">Your Anthropic API Key</h2>
+                <h2 className="font-semibold mb-1">Your AI API Key</h2>
                 <p className="text-sm text-muted-foreground mb-4">
                   Add your own key from{" "}
                   <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">

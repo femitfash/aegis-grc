@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
         {
           error: "free_limit_reached",
           upgrade_prompt: true,
-          message: `You've used all ${FREE_LIMIT} free AI actions. Upgrade to Growth for unlimited sessions — or add your Anthropic API key in Settings → AI Copilot.`,
+          message: `You've used all ${FREE_LIMIT} free AI actions. Upgrade to Growth for unlimited sessions — or add your AI API key in Settings → AI Copilot.`,
           write_count: writeCount,
           limit: FREE_LIMIT,
         },

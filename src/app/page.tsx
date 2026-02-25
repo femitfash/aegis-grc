@@ -273,7 +273,7 @@ export default function Home() {
                   "Describe risks in plain English — AI does the rest",
                   "One sentence to create a fully scored risk",
                   "Ready to use in 15 minutes, no consultant needed",
-                  "Free tier + bring your own Anthropic API key",
+                  "Free tier + bring your own AI API key",
                   "Risk reduction metrics, not just checkbox counts",
                   "Audit-ready trail with cryptographic verification",
                   "AI copilot is the primary interface, not a chatbot add-on",
@@ -308,7 +308,7 @@ export default function Home() {
                 icon: MessageSquare,
                 title: "AI Copilot — Primary Interface",
                 description:
-                  "Chat is not a sidebar feature. The copilot is how you create risks, manage controls, update compliance status, and query your posture. Powered by Claude.",
+                  "Chat is not a sidebar feature. The copilot is how you create risks, manage controls, update compliance status, and query your posture.",
               },
               {
                 icon: TrendingDown,
@@ -338,7 +338,7 @@ export default function Home() {
                 icon: Globe,
                 title: "Bring Your Own API Key",
                 description:
-                  "Use FastGRC free for your first 10 AI actions. Then connect your own Anthropic API key for unlimited usage at cost. No vendor lock-in.",
+                  "Use FastGRC free for your first 10 AI actions. Then connect your own AI API key for unlimited usage at cost. No vendor lock-in.",
               },
               {
                 icon: GitBranch,

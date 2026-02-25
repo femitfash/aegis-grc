@@ -105,7 +105,7 @@ export default function RootLayout({
       "@type": "Offer",
       price: "0",
       priceCurrency: "USD",
-      description: "Free tier with 10 AI actions. Unlimited via bring-your-own Anthropic API key.",
+      description: "Free tier with 10 AI actions. Unlimited via bring-your-own AI API key.",
     },
     featureList: [
       "AI Copilot for risk management",
@@ -116,7 +116,7 @@ export default function RootLayout({
       "Zero-field risk entry via natural language",
       "Immutable audit trail with cryptographic hash chain",
       "Custom compliance frameworks",
-      "Bring your own Anthropic API key",
+      "Bring your own AI API key",
       "Multi-framework compliance dashboard",
     ],
     softwareHelp: {

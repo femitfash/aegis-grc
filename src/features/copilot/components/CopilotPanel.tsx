@@ -85,7 +85,7 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
         const limitMsg: Message = {
           id: generateId(),
           role: "assistant",
-          content: `🔒 **Free tier limit reached**\n\nYou've used all 10 free AI actions. You can:\n- **[Upgrade to Growth](/#pricing)** — unlimited AI, all frameworks, Slack/Jira/GitHub (14-day free trial)\n- **Add your own API key** → Settings → AI Copilot → paste your [Anthropic key](https://console.anthropic.com)`,
+          content: `🔒 **Free tier limit reached**\n\nYou've used all 10 free AI actions. You can:\n- **[Upgrade to Growth](/#pricing)** — unlimited AI, all frameworks, Slack/Jira/GitHub (14-day free trial)\n- **Add your own API key** → Settings → AI Copilot → paste your AI API key`,
           timestamp: new Date(),
         };
         setMessages((prev) =>
@@ -405,7 +405,7 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
           </button>
         </form>
         <p className="text-xs text-muted-foreground mt-2 text-center">
-          Powered by Claude · FastGRC
+          FastGRC AI Copilot
         </p>
       </div>
 
