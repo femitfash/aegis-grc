@@ -14,6 +14,7 @@ import {
   Globe,
   Clock,
   GitBranch,
+  ChevronDown,
 } from "lucide-react";
 
 export default function Home() {
@@ -587,7 +588,7 @@ export default function Home() {
               <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Builder</div>
               <div className="mb-1 text-3xl font-bold">$0</div>
               <div className="mb-6 text-sm text-muted-foreground">1 contributor · forever free</div>
-              <ul className="mb-8 space-y-2.5 text-sm text-muted-foreground">
+              <ul className="mb-6 space-y-2.5 text-sm text-muted-foreground">
                 {[
                   "1 compliance framework",
                   "10 AI copilot sessions / month",
@@ -602,12 +603,34 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
+              <details className="mb-6 group">
+                <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-primary [&::-webkit-details-marker]:hidden">
+                  <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+                  See what&apos;s included
+                </summary>
+                <ul className="mt-3 space-y-1.5 text-xs text-muted-foreground border-t border-border pt-3">
+                  {[
+                    "Dashboard: risks, controls, evidence & audit log",
+                    "Choose 1 framework: SOC 2, ISO 27001, NIST CSF, or HIPAA",
+                    "PDF exports (Aegis watermark)",
+                    "Data stored in your preferred region (EU / US)",
+                    "No integrations on free plan",
+                    "Upgrade anytime — data carries over",
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2">
+                      <span className="mt-0.5 shrink-0 text-muted-foreground/50">–</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </details>
               <Link
                 href="/register"
                 className="block w-full rounded-md border border-input bg-background py-2.5 text-center text-sm font-semibold transition-colors hover:bg-accent"
               >
                 Get started free
               </Link>
+              <p className="mt-3 text-center text-xs text-muted-foreground">No credit card required</p>
             </div>
 
             {/* GROWTH */}
@@ -618,12 +641,12 @@ export default function Home() {
               <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Growth</div>
               <div className="mb-1 text-3xl font-bold">$49</div>
               <div className="mb-6 text-sm text-muted-foreground">per contributor / month · min $245/mo</div>
-              <ul className="mb-8 space-y-2.5 text-sm text-muted-foreground">
+              <ul className="mb-6 space-y-2.5 text-sm text-muted-foreground">
                 {[
                   "Unlimited AI copilot sessions",
                   "All compliance frameworks",
                   "Multi-framework gap analysis",
-                  "Slack & Jira integration",
+                  "Slack, Jira & GitHub integration",
                   "Audit-ready report exports",
                   "Email support (1 business day)",
                 ].map((item) => (
@@ -633,12 +656,36 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
+              <details className="mb-6 group">
+                <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-primary [&::-webkit-details-marker]:hidden">
+                  <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+                  See what&apos;s included
+                </summary>
+                <ul className="mt-3 space-y-1.5 text-xs text-muted-foreground border-t border-border pt-3">
+                  {[
+                    "Everything in Builder",
+                    "SOC 2, ISO 27001, NIST CSF & HIPAA simultaneously",
+                    "Slack: risk alerts + copilot in your channel",
+                    "Jira: auto-create tickets from risks & controls",
+                    "GitHub: sync security alerts to risk register",
+                    "Read-only users: free & unlimited",
+                    "PDF & CSV exports (no watermark)",
+                    "SSO not included (Enterprise only)",
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2">
+                      <span className="mt-0.5 shrink-0 text-muted-foreground/50">–</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </details>
               <Link
                 href="/register"
                 className="block w-full rounded-md bg-primary py-2.5 text-center text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 Start free trial
               </Link>
+              <p className="mt-3 text-center text-xs text-muted-foreground">Audit-ready exports included</p>
             </div>
 
             {/* ENTERPRISE */}
@@ -646,7 +693,7 @@ export default function Home() {
               <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Enterprise</div>
               <div className="mb-1 text-3xl font-bold">Custom</div>
               <div className="mb-6 text-sm text-muted-foreground">volume pricing · annual contracts</div>
-              <ul className="mb-8 space-y-2.5 text-sm text-muted-foreground">
+              <ul className="mb-6 space-y-2.5 text-sm text-muted-foreground">
                 {[
                   "Everything in Growth",
                   "SSO (SAML / OIDC)",
@@ -661,10 +708,86 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
+              <details className="mb-6 group">
+                <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-primary [&::-webkit-details-marker]:hidden">
+                  <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+                  See what&apos;s included
+                </summary>
+                <ul className="mt-3 space-y-1.5 text-xs text-muted-foreground border-t border-border pt-3">
+                  {[
+                    "Everything in Growth",
+                    "SSO via SAML 2.0 or OIDC + SCIM provisioning",
+                    "Custom data residency (EU, US, or on-prem)",
+                    "Vendor risk module with tier-based scoring",
+                    "REST API + webhooks for custom integrations",
+                    "Custom SLA with uptime guarantee",
+                    "Quarterly business reviews",
+                    "Negotiated multi-year pricing",
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2">
+                      <span className="mt-0.5 shrink-0 text-muted-foreground/50">–</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </details>
               <ContactButton
                 label="Talk to Sales"
                 className="block w-full rounded-md border border-input bg-background py-2.5 text-center text-sm font-semibold transition-colors hover:bg-accent"
               />
+              <p className="mt-3 text-center text-xs text-muted-foreground">Response within 1 business day</p>
+            </div>
+          </div>
+
+          {/* ── Trust signals ── */}
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-green-500" /> No credit card required</span>
+            <span className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-green-500" /> Audit-ready exports on every paid plan</span>
+            <span className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-green-500" /> Used by security teams doing SOC 2, ISO 27001, NIST &amp; HIPAA</span>
+          </div>
+
+          {/* ── FAQ ── */}
+          <div className="mt-16 text-left">
+            <h3 className="mb-6 text-xl font-semibold text-center">Frequently asked questions</h3>
+            <div className="mx-auto max-w-2xl divide-y divide-border rounded-xl border border-border bg-card overflow-hidden">
+              {[
+                {
+                  q: `What does "Unlimited AI Copilot (fair use)" mean?`,
+                  a: `On the Growth plan, AI sessions are unlimited for normal team use. Fair use means we reserve the right to throttle accounts sending thousands of automated requests — something that never affects teams using Aegis the way it's designed. Day-to-day copilot conversations, risk creation, and report generation all count as normal use.`,
+                },
+                {
+                  q: "Why does Growth cost $245 minimum?",
+                  a: "Growth includes dedicated infrastructure, third-party integrations (Slack, Jira, GitHub), and 1-business-day email support. The minimum of 5 contributors ($245/mo) covers the baseline cost to serve a team reliably. As your team grows past 5, you simply add $49 per seat.",
+                },
+                {
+                  q: "Can I start with 1 contributor and grow later?",
+                  a: "Yes. Start on Builder for free with 1 contributor. When your team needs more frameworks, integrations, or seats, upgrade to Growth in one click. All your risks, controls, evidence, and audit history carry over with zero data migration.",
+                },
+                {
+                  q: "Are read-only users actually free?",
+                  a: "Yes. Auditors, leadership, and stakeholders who only view risks, controls, evidence, and reports are free and unlimited on any paid plan. Only contributors who create, edit, or delete records count toward your seat total.",
+                },
+                {
+                  q: "Which frameworks are included?",
+                  a: "Builder includes 1 framework (SOC 2 Type II, ISO 27001:2022, NIST CSF 2.0, or HIPAA — your choice). Growth and Enterprise include all four frameworks simultaneously, with cross-framework gap analysis and requirement mapping included.",
+                },
+                {
+                  q: "What support is provided on each plan?",
+                  a: "Builder: community forum and documentation. Growth: email support with a 1-business-day response guarantee. Enterprise: dedicated success manager, shared Slack channel, quarterly business reviews, and a custom SLA with uptime guarantees.",
+                },
+                {
+                  q: "Can I switch plans anytime?",
+                  a: "Yes. Upgrade instantly — access to new features starts immediately and billing is prorated. Downgrades take effect at the end of your current billing period so you never lose paid time.",
+                },
+              ].map(({ q, a }) => (
+                <details key={q} className="group px-6 py-4">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium text-sm [&::-webkit-details-marker]:hidden">
+                    {q}
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                  </summary>
+                  <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{a}</p>
+                </details>
+              ))}
             </div>
           </div>
         </div>
