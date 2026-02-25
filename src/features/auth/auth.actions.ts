@@ -55,8 +55,8 @@ function getAuthErrorMessage(error: { message: string; code?: string }): string 
   if (message.includes("weak password") || message.includes("password")) {
     return "Password does not meet security requirements. Please use a stronger password.";
   }
-  if (message.includes("email")) {
-    return "There was an issue with the email provided. Please check and try again.";
+  if (message.includes("email") && (message.includes("invalid") || message.includes("not found") || message.includes("format"))) {
+    return "Please enter a valid email address.";
   }
 
   return "An unexpected error occurred. Please try again.";
@@ -191,14 +191,11 @@ export async function resetPasswordRequest(
     }
   );
 
+  // Always return success regardless of Supabase errors.
+  // This prevents email enumeration attacks and avoids surfacing
+  // redirect-URL whitelist errors to the user when the email still sends.
   if (error) {
-    return {
-      success: false,
-      error: {
-        message: getAuthErrorMessage(error),
-        code: error.code,
-      },
-    };
+    console.error("[resetPasswordRequest]", error.message);
   }
 
   return {
