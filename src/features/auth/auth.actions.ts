@@ -39,12 +39,15 @@ async function getBaseUrl(): Promise<string> {
  */
 function getAuthErrorMessage(error: { message: string; code?: string }): string {
   const message = error.message.toLowerCase();
+  const code = (error.code ?? "").toLowerCase();
 
-  if (message.includes("invalid login credentials")) {
-    return "Invalid email or password. Please check your credentials and try again.";
-  }
-  if (message.includes("email not confirmed")) {
+  // Supabase returns "email_not_confirmed" code or "Email not confirmed" message
+  // depending on version — check both
+  if (code === "email_not_confirmed" || message.includes("email not confirmed")) {
     return "Please verify your email address before signing in. Check your inbox for a confirmation link.";
+  }
+  if (message.includes("invalid login credentials") || code === "invalid_credentials") {
+    return "Invalid email or password. Please check your credentials and try again.";
   }
   if (message.includes("user already registered")) {
     return "An account with this email already exists. Please sign in or use a different email.";
@@ -120,10 +123,15 @@ export async function signUp(formData: FormData): Promise<AuthResult> {
   // Validate input
   const parsed = registerSchema.safeParse(rawData);
   if (!parsed.success) {
+    // Prefer field-level errors over cross-field refinement errors (code "custom")
+    // so "Full name is required" shows before "Passwords do not match"
+    const firstError =
+      parsed.error.errors.find((e) => e.code !== "custom") ??
+      parsed.error.errors[0];
     return {
       success: false,
       error: {
-        message: parsed.error.errors[0].message,
+        message: firstError.message,
         code: "VALIDATION_ERROR",
       },
     };

@@ -13,11 +13,13 @@ export function RegisterForm() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setError(null);
     setIsLoading(true);
 
     try {
+      const formData = new FormData(e.currentTarget);
       const result = await signUp(formData);
 
       if (result.success && result.redirectTo) {
@@ -66,7 +68,7 @@ export function RegisterForm() {
       </div>
 
       {/* Registration form */}
-      <form action={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <label
             htmlFor="fullName"
