@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ContactButton } from "./contact-button";
 import { BrandLogo } from "@/shared/components/brand-logo";
 import {
-  Shield,
   MessageSquare,
   FileCheck,
   TrendingDown,
@@ -818,9 +817,8 @@ export default function Home() {
         <div className="mx-auto max-w-7xl">
           <div className="mb-8 flex flex-col gap-8 md:flex-row md:justify-between">
             <div>
-              <div className="mb-3 flex items-center gap-2">
-                <Shield className="h-5 w-5 text-primary" />
-                <span className="font-bold">FastGRC</span>
+              <div className="mb-3">
+                <BrandLogo className="text-lg" />
               </div>
               <p className="max-w-xs text-sm text-muted-foreground">
                 The AI-native GRC platform. Manage SOC 2, ISO 27001, NIST, and HIPAA compliance
@@ -828,7 +826,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-8 text-sm md:grid-cols-3">
+            <div className="grid grid-cols-2 gap-8 text-sm md:grid-cols-4">
               <div>
                 <div className="mb-3 font-semibold">Product</div>
                 <ul className="space-y-2 text-muted-foreground">
@@ -854,6 +852,21 @@ export default function Home() {
                   <li><a href="#comparison" className="hover:text-foreground">vs Vanta</a></li>
                   <li><a href="#comparison" className="hover:text-foreground">vs Drata</a></li>
                   <li><a href="#comparison" className="hover:text-foreground">vs Thoropass</a></li>
+                </ul>
+              </div>
+              <div>
+                <div className="mb-3 font-semibold">Contact</div>
+                <ul className="space-y-2 text-muted-foreground">
+                  <li>
+                    <a href="mailto:contact@fastgrc.ai" className="hover:text-foreground">
+                      contact@fastgrc.ai
+                    </a>
+                  </li>
+                  <li>
+                    <a href="mailto:support@fastgrc.ai" className="hover:text-foreground">
+                      support@fastgrc.ai
+                    </a>
+                  </li>
                 </ul>
               </div>
             </div>

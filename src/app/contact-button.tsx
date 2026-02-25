@@ -152,7 +152,8 @@ export function ContactButton({ label = "Talk to Sales", className }: ContactBut
 
                   {status === "error" && (
                     <p className="text-xs text-red-600">
-                      Something went wrong — please email us directly at hello@fastgrc.ai
+                      Something went wrong — please email us at{" "}
+                      <a href="mailto:contact@fastgrc.ai" className="underline">contact@fastgrc.ai</a>
                     </p>
                   )}
 
