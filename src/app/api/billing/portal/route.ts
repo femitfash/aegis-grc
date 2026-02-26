@@ -5,9 +5,39 @@ import { stripe, PRICES } from "@/shared/lib/stripe";
 // Cache the portal configuration ID for the lifetime of this serverless instance
 // so we don't create a new config on every request.
 let cachedPortalConfigId: string | null = process.env.STRIPE_PORTAL_CONFIG_ID ?? null;
+let brandingUpdated = false;
+
+/** Update Stripe account business name + brand color to match FastGRC branding.
+ *  Runs once per serverless instance so the Stripe Customer Portal shows
+ *  "Return to fastgrc.ai" and uses the app's primary color on buttons. */
+async function applyStripeBranding(): Promise<void> {
+  if (!stripe || brandingUpdated) return;
+  brandingUpdated = true;
+  try {
+    const account = await stripe.accounts.retrieve();
+    await stripe.accounts.update(account.id, {
+      business_profile: {
+        name: "fastgrc.ai",
+        url: process.env.NEXT_PUBLIC_APP_URL ?? "https://www.fastgrc.ai",
+      },
+      settings: {
+        branding: {
+          primary_color: "#2563eb",   // FastGRC blue
+          secondary_color: "#1d4ed8",
+        },
+      },
+    });
+    console.log("[billing portal] Stripe account branding updated to fastgrc.ai");
+  } catch (err) {
+    // May fail on restricted API keys — non-fatal
+    console.warn("[billing portal] Could not update account branding:", err instanceof Error ? err.message : err);
+    brandingUpdated = false; // allow retry
+  }
+}
 
 async function getOrCreatePortalConfig(): Promise<string | null> {
   if (!stripe) return null;
+  void applyStripeBranding();
   if (cachedPortalConfigId) return cachedPortalConfigId;
 
   // Gather price IDs we have configured
@@ -18,8 +48,13 @@ async function getOrCreatePortalConfig(): Promise<string | null> {
     // No price IDs configured — can't set up subscription_update products list.
     // Fall back to a minimal portal config with just cancellation + invoice history.
     try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.fastgrc.ai";
       const config = await stripe.billingPortal.configurations.create({
-        business_profile: { headline: "Manage your FastGRC subscription" },
+        business_profile: {
+          headline: "Manage your FastGRC subscription",
+          privacy_policy_url: `${appUrl}/privacy`,
+          terms_of_service_url: `${appUrl}/terms`,
+        },
         features: {
           invoice_history: { enabled: true },
           payment_method_update: { enabled: true },
@@ -66,8 +101,13 @@ async function getOrCreatePortalConfig(): Promise<string | null> {
       }
     }
 
+    const appUrl2 = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.fastgrc.ai";
     const config = await stripe.billingPortal.configurations.create({
-      business_profile: { headline: "Manage your FastGRC subscription" },
+      business_profile: {
+        headline: "Manage your FastGRC subscription",
+        privacy_policy_url: `${appUrl2}/privacy`,
+        terms_of_service_url: `${appUrl2}/terms`,
+      },
       features: {
         invoice_history: { enabled: true },
         payment_method_update: { enabled: true },

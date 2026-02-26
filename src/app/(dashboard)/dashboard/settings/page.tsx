@@ -144,6 +144,10 @@ function SettingsPageInner() {
   const [billingLoading, setBillingLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeContributors, setUpgradeContributors] = useState(2);
+  const [upgradeReadonly, setUpgradeReadonly] = useState(0);
+  const [upgradeInterval, setUpgradeInterval] = useState<"month" | "year">("year");
 
   // AI Copilot
   const [aiUsage, setAiUsage] = useState<{ write_count: number; has_custom_key: boolean; limit: number } | null>(null);
@@ -274,12 +278,17 @@ function SettingsPageInner() {
   };
 
   const handleUpgradeClick = async () => {
+    setShowUpgradeModal(false);
     setUpgradeLoading(true);
     try {
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contributors: 2, readonly_users: 0, interval: "year" }),
+        body: JSON.stringify({
+          contributors: upgradeContributors,
+          readonly_users: upgradeReadonly,
+          interval: upgradeInterval,
+        }),
       });
       let data: { url?: string; error?: string } = {};
       try { data = await res.json(); } catch { /* non-JSON response */ }
@@ -712,7 +721,7 @@ function SettingsPageInner() {
                               </p>
                             </div>
                             <button
-                              onClick={handleUpgradeClick}
+                              onClick={() => setShowUpgradeModal(true)}
                               disabled={upgradeLoading}
                               className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                             >
@@ -780,15 +789,27 @@ function SettingsPageInner() {
                     </div>
                   )}
 
-                  {/* Period info */}
+                  {/* Period / cancellation info */}
                   {subscription?.current_period_end && (
-                    <div className="p-4 rounded-lg border bg-card text-sm text-muted-foreground">
-                      {subscription.trial_end && new Date(subscription.trial_end) > new Date() ? (
-                        <>Trial ends <strong>{new Date(subscription.trial_end).toLocaleDateString()}</strong> — no charge until then.</>
-                      ) : (
-                        <>Next billing date: <strong>{new Date(subscription.current_period_end).toLocaleDateString()}</strong></>
-                      )}
-                    </div>
+                    subscription.cancel_at_period_end ? (
+                      <div className="p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 text-sm space-y-1">
+                        <p className="font-medium text-yellow-700 dark:text-yellow-400">
+                          Subscription cancelled — access continues until{" "}
+                          <strong>{new Date(subscription.current_period_end).toLocaleDateString()}</strong>
+                        </p>
+                        <p className="text-yellow-600 dark:text-yellow-500 text-xs">
+                          You will <strong>not</strong> be charged again. All your data remains accessible until that date.
+                        </p>
+                      </div>
+                    ) : subscription.trial_end && new Date(subscription.trial_end) > new Date() ? (
+                      <div className="p-4 rounded-lg border bg-card text-sm text-muted-foreground">
+                        Trial ends <strong>{new Date(subscription.trial_end).toLocaleDateString()}</strong> — no charge until then.
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-lg border bg-card text-sm text-muted-foreground">
+                        Next billing date: <strong>{new Date(subscription.current_period_end).toLocaleDateString()}</strong>
+                      </div>
+                    )
                   )}
 
                   {/* Plan comparison — always visible */}
@@ -853,7 +874,7 @@ function SettingsPageInner() {
                             <div className="flex-1 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-primary/5 border border-primary/20 rounded-lg px-4 py-3">
                               <p className="text-xs text-muted-foreground">14-day free trial · Cancel anytime · No credit card required to start</p>
                               <button
-                                onClick={handleUpgradeClick}
+                                onClick={() => setShowUpgradeModal(true)}
                                 disabled={upgradeLoading}
                                 className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                               >
@@ -1127,7 +1148,7 @@ function SettingsPageInner() {
                                 : `Almost at the limit. Upgrade to Growth for unlimited AI.`}
                             </p>
                             <button
-                              onClick={handleUpgradeClick}
+                              onClick={() => setShowUpgradeModal(true)}
                               className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
                             >
                               Upgrade →
@@ -1236,6 +1257,119 @@ function SettingsPageInner() {
 
         </div>
       </div>
+
+      {/* ── Upgrade seat-selector modal ──────────────────────────────────── */}
+      {showUpgradeModal && (() => {
+        const contribPrice = upgradeInterval === "year"
+          ? DISPLAY_PRICES.contributor_annual / 100
+          : DISPLAY_PRICES.contributor_monthly / 100;
+        const roPrice = upgradeInterval === "year"
+          ? DISPLAY_PRICES.readonly_annual / 100
+          : DISPLAY_PRICES.readonly_monthly / 100;
+        const total = upgradeContributors * contribPrice + upgradeReadonly * roPrice;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="w-full max-w-md rounded-xl border bg-card shadow-2xl overflow-hidden">
+              {/* Header */}
+              <div className="px-6 pt-6 pb-4 border-b">
+                <h2 className="text-lg font-semibold">Upgrade to Growth</h2>
+                <p className="text-sm text-muted-foreground mt-1">14-day free trial · Cancel anytime · No credit card charged until trial ends</p>
+              </div>
+
+              <div className="p-6 space-y-5">
+                {/* Billing interval */}
+                <div>
+                  <p className="text-sm font-medium mb-2">Billing cycle</p>
+                  <div className="flex rounded-lg border overflow-hidden text-sm">
+                    <button
+                      className={`flex-1 px-4 py-2 transition-colors ${upgradeInterval === "year" ? "bg-primary text-primary-foreground font-medium" : "hover:bg-accent"}`}
+                      onClick={() => setUpgradeInterval("year")}
+                    >
+                      Annual <span className="text-xs opacity-80 ml-1">save ~20%</span>
+                    </button>
+                    <button
+                      className={`flex-1 px-4 py-2 transition-colors ${upgradeInterval === "month" ? "bg-primary text-primary-foreground font-medium" : "hover:bg-accent"}`}
+                      onClick={() => setUpgradeInterval("month")}
+                    >
+                      Monthly
+                    </button>
+                  </div>
+                </div>
+
+                {/* Contributor seats */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Contributors</p>
+                    <p className="text-xs text-muted-foreground">{fmt(contribPrice)}/seat/mo · can create &amp; edit</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      className="w-8 h-8 rounded-full border flex items-center justify-center text-lg hover:bg-accent transition-colors disabled:opacity-40"
+                      onClick={() => setUpgradeContributors((n) => Math.max(1, n - 1))}
+                      disabled={upgradeContributors <= 1}
+                    >−</button>
+                    <span className="w-6 text-center font-semibold">{upgradeContributors}</span>
+                    <button
+                      className="w-8 h-8 rounded-full border flex items-center justify-center text-lg hover:bg-accent transition-colors"
+                      onClick={() => setUpgradeContributors((n) => n + 1)}
+                    >+</button>
+                  </div>
+                </div>
+
+                {/* Read-only seats */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Read-only users</p>
+                    <p className="text-xs text-muted-foreground">{fmt(roPrice)}/seat/mo · view only</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      className="w-8 h-8 rounded-full border flex items-center justify-center text-lg hover:bg-accent transition-colors disabled:opacity-40"
+                      onClick={() => setUpgradeReadonly((n) => Math.max(0, n - 1))}
+                      disabled={upgradeReadonly <= 0}
+                    >−</button>
+                    <span className="w-6 text-center font-semibold">{upgradeReadonly}</span>
+                    <button
+                      className="w-8 h-8 rounded-full border flex items-center justify-center text-lg hover:bg-accent transition-colors"
+                      onClick={() => setUpgradeReadonly((n) => n + 1)}
+                    >+</button>
+                  </div>
+                </div>
+
+                {/* Price summary */}
+                <div className="rounded-lg bg-muted/50 px-4 py-3 border">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Estimated total</span>
+                    <span className="font-semibold text-base">{fmt(total)}<span className="text-xs font-normal text-muted-foreground">/mo</span>
+                      {upgradeInterval === "year" && (
+                        <span className="text-xs font-normal text-muted-foreground ml-1">· {fmt(total * 12)}/yr</span>
+                      )}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">No charge for 14 days. You can adjust seats anytime.</p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 pb-6 flex gap-3">
+                <button
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="flex-1 px-4 py-2 rounded-lg border text-sm hover:bg-accent transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpgradeClick}
+                  disabled={upgradeLoading}
+                  className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {upgradeLoading ? "Opening Stripe…" : "Start free trial →"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
