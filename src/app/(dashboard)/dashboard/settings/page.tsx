@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { DISPLAY_PRICES } from "@/shared/lib/stripe";
 
@@ -58,8 +59,18 @@ function planLabel(plan: string, status: string) {
 }
 
 export default function SettingsPage() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>("organization");
   const { theme, setTheme } = useTheme();
+
+  // Read ?tab and ?upgraded from URL on first mount
+  useEffect(() => {
+    const validTabs: Tab[] = ["organization", "team", "billing", "integrations", "notifications", "security", "appearance", "ai"];
+    const urlTab = searchParams.get("tab") as Tab | null;
+    if (urlTab && validTabs.includes(urlTab)) setActiveTab(urlTab);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const justUpgraded = searchParams.get("upgraded") === "true";
 
   // Organization
   const [orgName, setOrgName] = useState("");
@@ -84,6 +95,7 @@ export default function SettingsPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [billingLoading, setBillingLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
 
   // AI Copilot
   const [aiUsage, setAiUsage] = useState<{ write_count: number; has_custom_key: boolean; limit: number } | null>(null);
@@ -196,14 +208,24 @@ export default function SettingsPage() {
   };
 
   const handleUpgradeClick = async () => {
-    const res = await fetch("/api/billing/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contributors: 2, readonly_users: 0, interval: "year" }),
-    });
-    const data = await res.json();
-    if (data.url) window.location.href = data.url;
-    else alert(data.error || "Checkout unavailable. Add STRIPE_SECRET_KEY to env vars.");
+    setUpgradeLoading(true);
+    try {
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contributors: 2, readonly_users: 0, interval: "year" }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || "Billing is not configured yet. Please contact support@fastgrc.ai.");
+      }
+    } catch {
+      alert("Could not start checkout. Please try again or contact support@fastgrc.ai.");
+    } finally {
+      setUpgradeLoading(false);
+    }
   };
 
   const handleSaveApiKey = async () => {
@@ -491,6 +513,14 @@ export default function SettingsPage() {
           {/* ── Billing ──────────────────────────────────────────────────── */}
           {activeTab === "billing" && (
             <div className="space-y-6">
+              {/* Success banner after upgrade or portal return */}
+              {justUpgraded && (
+                <div className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-600 dark:text-green-400 flex items-center gap-2">
+                  <span>✓</span>
+                  <span><strong>You&apos;re on Growth!</strong> Your plan has been upgraded. Welcome aboard.</span>
+                </div>
+              )}
+
               {billingLoading ? (
                 <div className="p-6 rounded-lg border bg-card">
                   <div className="h-5 w-32 bg-muted rounded animate-pulse mb-4" />
@@ -540,9 +570,10 @@ export default function SettingsPage() {
                         </div>
                         <button
                           onClick={handleUpgradeClick}
-                          className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+                          disabled={upgradeLoading}
+                          className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                         >
-                          Upgrade →
+                          {upgradeLoading ? "Opening…" : "Upgrade to Growth →"}
                         </button>
                       </div>
                     )}
@@ -614,11 +645,66 @@ export default function SettingsPage() {
                       )}
                     </div>
                   )}
+
+                  {/* Plan comparison — always visible so users know what else is available */}
+                  <div className="p-6 rounded-lg border bg-card">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="font-semibold">Compare Plans</h2>
+                      <a href="/#pricing" target="_blank" className="text-xs text-primary hover:underline">
+                        Full pricing ↗
+                      </a>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left pb-2 font-medium text-muted-foreground w-1/2">Feature</th>
+                            <th className="text-center pb-2 font-medium w-1/4">Builder<br /><span className="text-xs font-normal text-muted-foreground">Free</span></th>
+                            <th className={`text-center pb-2 font-medium w-1/4 ${subscription.plan !== "builder" ? "text-primary" : ""}`}>
+                              Growth<br /><span className="text-xs font-normal text-muted-foreground">$39/seat/mo</span>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {[
+                            ["AI copilot sessions", "10 total", "Unlimited"],
+                            ["Compliance frameworks", "3 (SOC 2, ISO, NIST)", "All frameworks + HIPAA"],
+                            ["Contributor seats", "1", "Unlimited"],
+                            ["Read-only users", "—", "Unlimited ($7.99/mo)"],
+                            ["Slack / Jira / GitHub", "—", "✓"],
+                            ["Audit-ready exports", "—", "✓"],
+                            ["Custom frameworks", "—", "✓"],
+                            ["Priority support", "—", "✓"],
+                          ].map(([feature, builder, growth]) => (
+                            <tr key={feature} className="hover:bg-muted/30">
+                              <td className="py-2 text-muted-foreground">{feature}</td>
+                              <td className="py-2 text-center text-muted-foreground">{builder}</td>
+                              <td className={`py-2 text-center font-medium ${subscription.plan !== "builder" ? "text-primary" : ""}`}>{growth}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {subscription.plan === "builder" && (
+                      <div className="mt-4 pt-4 border-t flex items-center justify-between gap-4">
+                        <p className="text-xs text-muted-foreground">14-day free trial · Cancel anytime · No credit card required to start</p>
+                        <button
+                          onClick={handleUpgradeClick}
+                          disabled={upgradeLoading}
+                          className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                        >
+                          {upgradeLoading ? "Opening…" : "Upgrade to Growth →"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 <div className="p-6 rounded-lg border bg-card text-center text-sm text-muted-foreground">
                   No billing record found.
-                  <button onClick={handleUpgradeClick} className="ml-2 text-primary underline">Upgrade to Growth</button>
+                  <button onClick={handleUpgradeClick} disabled={upgradeLoading} className="ml-2 text-primary underline disabled:opacity-50">
+                    {upgradeLoading ? "Opening…" : "Upgrade to Growth"}
+                  </button>
                 </div>
               )}
             </div>

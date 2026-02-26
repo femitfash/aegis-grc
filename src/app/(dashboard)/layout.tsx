@@ -60,8 +60,20 @@ export default function DashboardLayout({
           })}
         </nav>
 
+        {/* Upgrade CTA */}
+        <div className="px-4 pt-2">
+          <Link
+            href="/dashboard/settings?tab=billing"
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+          >
+            <span>⚡</span>
+            <span className="flex-1">Upgrade to Growth</span>
+            <span className="text-xs opacity-70">$39/mo</span>
+          </Link>
+        </div>
+
         {/* Copilot toggle */}
-        <div className="px-4 pt-4">
+        <div className="px-4 pt-2">
           <button
             onClick={() => setCopilotOpen(!copilotOpen)}
             className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
