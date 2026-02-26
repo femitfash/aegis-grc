@@ -795,6 +795,8 @@ function SettingsPageInner() {
                   {(() => {
                     const plan = subscription?.plan ?? "builder";
                     const isFreePlan = plan === "builder";
+                    const isGrowth = plan === "growth";
+                    const isEnterprise = plan === "enterprise";
                     return (
                       <div className="p-6 rounded-lg border bg-card">
                         <div className="flex items-center justify-between mb-4">
@@ -807,47 +809,71 @@ function SettingsPageInner() {
                           <table className="w-full text-sm">
                             <thead>
                               <tr className="border-b">
-                                <th className="text-left pb-2 font-medium text-muted-foreground w-1/2">Feature</th>
-                                <th className="text-center pb-2 font-medium w-1/4">
+                                <th className="text-left pb-2 font-medium text-muted-foreground" style={{ width: "40%" }}>Feature</th>
+                                <th className={`text-center pb-2 font-medium ${isFreePlan ? "text-foreground" : "text-muted-foreground"}`} style={{ width: "20%" }}>
                                   Builder<br /><span className="text-xs font-normal text-muted-foreground">Free forever</span>
                                 </th>
-                                <th className={`text-center pb-2 font-medium w-1/4 ${!isFreePlan ? "text-primary" : ""}`}>
-                                  Growth<br /><span className="text-xs font-normal text-muted-foreground">$39/seat/mo</span>
+                                <th className={`text-center pb-2 font-medium ${isGrowth ? "text-primary" : "text-muted-foreground"}`} style={{ width: "20%" }}>
+                                  Growth<br /><span className="text-xs font-normal">$39/seat/mo</span>
+                                </th>
+                                <th className={`text-center pb-2 font-medium ${isEnterprise ? "text-purple-600" : "text-muted-foreground"}`} style={{ width: "20%" }}>
+                                  Enterprise<br /><span className="text-xs font-normal">Custom pricing</span>
                                 </th>
                               </tr>
                             </thead>
                             <tbody className="divide-y">
                               {[
-                                ["AI copilot sessions", "10 total", "Unlimited"],
-                                ["Compliance frameworks", "3 (SOC 2, ISO, NIST)", "All frameworks + HIPAA"],
-                                ["Contributor seats", "1", "Unlimited"],
-                                ["Read-only users", "—", "Unlimited ($7.99/mo)"],
-                                ["Slack / Jira / GitHub", "—", "✓"],
-                                ["Audit-ready exports", "—", "✓"],
-                                ["Custom frameworks", "—", "✓"],
-                                ["Priority support", "—", "✓"],
-                              ].map(([feature, builder, growth]) => (
+                                ["AI copilot sessions", "10 total", "Unlimited", "Unlimited"],
+                                ["Compliance frameworks", "3 (SOC 2, ISO, NIST)", "All + HIPAA", "All + Custom"],
+                                ["Contributor seats", "1", "Unlimited", "Unlimited"],
+                                ["Read-only users", "—", "Unlimited ($7.99/mo)", "Unlimited"],
+                                ["Slack / Jira / GitHub", "—", "✓", "✓"],
+                                ["Audit-ready exports", "—", "✓", "✓"],
+                                ["Custom frameworks", "—", "✓", "✓"],
+                                ["SSO / SAML", "—", "—", "✓"],
+                                ["Dedicated CSM", "—", "—", "✓"],
+                                ["SLA & uptime guarantee", "—", "—", "✓"],
+                                ["On-prem / private cloud", "—", "—", "✓"],
+                                ["Priority support", "—", "Email", "24/7 phone & email"],
+                              ].map(([feature, builder, growth, enterprise]) => (
                                 <tr key={feature} className="hover:bg-muted/30">
                                   <td className="py-2 text-muted-foreground">{feature}</td>
                                   <td className={`py-2 text-center ${isFreePlan ? "font-medium" : "text-muted-foreground"}`}>{builder}</td>
-                                  <td className={`py-2 text-center font-medium ${!isFreePlan ? "text-primary" : ""}`}>{growth}</td>
+                                  <td className={`py-2 text-center ${isGrowth ? "font-medium text-primary" : "text-muted-foreground"}`}>{growth}</td>
+                                  <td className={`py-2 text-center ${isEnterprise ? "font-medium text-purple-600" : "text-muted-foreground"}`}>{enterprise}</td>
                                 </tr>
                               ))}
                             </tbody>
                           </table>
                         </div>
-                        {isFreePlan && (
-                          <div className="mt-4 pt-4 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                            <p className="text-xs text-muted-foreground">14-day free trial · Cancel anytime · No credit card required to start</p>
-                            <button
-                              onClick={handleUpgradeClick}
-                              disabled={upgradeLoading}
-                              className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+
+                        {/* Action row */}
+                        <div className="mt-4 pt-4 border-t flex flex-col sm:flex-row gap-3">
+                          {isFreePlan && (
+                            <div className="flex-1 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-primary/5 border border-primary/20 rounded-lg px-4 py-3">
+                              <p className="text-xs text-muted-foreground">14-day free trial · Cancel anytime · No credit card required to start</p>
+                              <button
+                                onClick={handleUpgradeClick}
+                                disabled={upgradeLoading}
+                                className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                              >
+                                {upgradeLoading ? "Opening…" : "Upgrade to Growth →"}
+                              </button>
+                            </div>
+                          )}
+                          <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800/30 rounded-lg px-4 py-3 ${isFreePlan ? "sm:max-w-xs" : "flex-1"}`}>
+                            <div>
+                              <p className="text-xs font-medium text-purple-700 dark:text-purple-300">Enterprise</p>
+                              <p className="text-xs text-muted-foreground">SSO, SLA, custom deployment, dedicated support</p>
+                            </div>
+                            <a
+                              href="mailto:sales@fastgrc.ai?subject=Enterprise inquiry"
+                              className="shrink-0 rounded-md bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 transition-colors"
                             >
-                              {upgradeLoading ? "Opening…" : "Upgrade to Growth →"}
-                            </button>
+                              Contact us →
+                            </a>
                           </div>
-                        )}
+                        </div>
                       </div>
                     );
                   })()}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandLogo } from "@/shared/components/brand-logo";
@@ -29,6 +29,14 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const [copilotOpen, setCopilotOpen] = useState(true);
+  const [plan, setPlan] = useState<string>("builder");
+
+  useEffect(() => {
+    fetch("/api/billing/subscription")
+      .then((r) => r.json())
+      .then((data) => { if (data.subscription?.plan) setPlan(data.subscription.plan); })
+      .catch(() => {});
+  }, []);
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
@@ -60,17 +68,19 @@ export default function DashboardLayout({
           })}
         </nav>
 
-        {/* Upgrade CTA */}
-        <div className="px-4 pt-2">
-          <Link
-            href="/dashboard/settings?tab=billing"
-            className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
-          >
-            <span>⚡</span>
-            <span className="flex-1">Upgrade to Growth</span>
-            <span className="text-xs opacity-70">$39/mo</span>
-          </Link>
-        </div>
+        {/* Upgrade CTA — only shown on free Builder plan */}
+        {plan === "builder" && (
+          <div className="px-4 pt-2">
+            <Link
+              href="/dashboard/settings?tab=billing"
+              className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+            >
+              <span>⚡</span>
+              <span className="flex-1">Upgrade to Growth</span>
+              <span className="text-xs opacity-70">$39/mo</span>
+            </Link>
+          </div>
+        )}
 
         {/* Copilot toggle */}
         <div className="px-4 pt-2">
