@@ -7,6 +7,7 @@ import { signInWithPassword, signInWithOAuth } from "../auth.actions";
 import { AuthAlert } from "./AuthAlert";
 import { OAuthButtons } from "./OAuthButtons";
 import { PasswordInput } from "./PasswordInput";
+import { OtpLoginForm } from "./OtpLoginForm";
 
 const INFO_MESSAGES: Record<string, string> = {
   "reset-link-sent":
@@ -25,6 +26,7 @@ export function LoginForm() {
   const message = searchParams.get("message");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [authMode, setAuthMode] = useState<"password" | "otp">("password");
 
   const infoMessage = message ? INFO_MESSAGES[message] : null;
   const urlError = message ? ERROR_MESSAGES[message] : null;
@@ -71,6 +73,11 @@ export function LoginForm() {
         </p>
       </div>
     );
+  }
+
+  // OTP mode — delegate entirely to OtpLoginForm
+  if (authMode === "otp") {
+    return <OtpLoginForm onSwitchToPassword={() => setAuthMode("password")} />;
   }
 
   async function handleSubmit(formData: FormData) {
@@ -193,6 +200,25 @@ export function LoginForm() {
           )}
         </button>
       </form>
+
+      {/* OTP toggle */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">or</span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setAuthMode("otp")}
+        className="w-full inline-flex items-center justify-center gap-2 h-10 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+      >
+        <span>✉️</span>
+        Sign in with email code
+      </button>
 
       {/* Register link */}
       <p className="text-center text-sm text-muted-foreground">

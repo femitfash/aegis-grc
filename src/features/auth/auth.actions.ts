@@ -61,6 +61,18 @@ function getAuthErrorMessage(error: { message: string; code?: string }): string 
   if (message.includes("email") && (message.includes("invalid") || message.includes("not found") || message.includes("format"))) {
     return "Please enter a valid email address.";
   }
+  if (code === "otp_expired" || message.includes("token has expired") || message.includes("otp expired")) {
+    return "Your code has expired. Please request a new one.";
+  }
+  if (code === "otp_disabled") {
+    return "Email codes are not enabled. Please sign in with your password.";
+  }
+  if (
+    message.includes("invalid") &&
+    (message.includes("token") || message.includes("otp") || message.includes("code"))
+  ) {
+    return "Invalid code. Please check and try again, or request a new code.";
+  }
   if (
     message.includes("smtp") ||
     message.includes("sending email") ||
@@ -317,6 +329,75 @@ export async function signInWithOAuth(
       code: "OAUTH_ERROR",
     },
   };
+}
+
+/**
+ * Server action: Send a one-time passcode to the user's email.
+ * Uses shouldCreateUser: false so it only works for existing accounts.
+ */
+export async function signInWithOtp(formData: FormData): Promise<AuthResult> {
+  const email = (formData.get("email") as string)?.trim();
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return {
+      success: false,
+      error: { message: "Please enter a valid email address.", code: "VALIDATION_ERROR" },
+    };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false },
+  });
+
+  if (error) {
+    console.error("[signInWithOtp]", JSON.stringify({ message: error.message, code: error.code }));
+    return {
+      success: false,
+      error: { message: getAuthErrorMessage(error), code: error.code },
+    };
+  }
+
+  // Always return success to prevent email enumeration
+  return { success: true };
+}
+
+/**
+ * Server action: Verify a one-time passcode and sign the user in.
+ */
+export async function verifyOtp(formData: FormData): Promise<AuthResult> {
+  const email = (formData.get("email") as string)?.trim();
+  const token = (formData.get("token") as string)?.trim().replace(/\s/g, "");
+
+  if (!email || !token) {
+    return {
+      success: false,
+      error: { message: "Email and code are required.", code: "VALIDATION_ERROR" },
+    };
+  }
+
+  if (!/^\d{6}$/.test(token)) {
+    return {
+      success: false,
+      error: { message: "Please enter the 6-digit code from your email.", code: "VALIDATION_ERROR" },
+    };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
+
+  if (error) {
+    console.error("[verifyOtp]", JSON.stringify({ message: error.message, code: error.code }));
+    return {
+      success: false,
+      error: { message: getAuthErrorMessage(error), code: error.code },
+    };
+  }
+
+  redirect("/dashboard");
 }
 
 /**
