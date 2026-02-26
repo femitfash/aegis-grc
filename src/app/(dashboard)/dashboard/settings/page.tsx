@@ -868,12 +868,11 @@ export default function SettingsPage() {
               <div className="p-6 rounded-lg border bg-card">
                 <h2 className="font-semibold mb-1">Theme</h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Choose how FastGRC looks to you. System will match your OS preference.
+                  Choose how FastGRC looks to you.
                 </p>
                 <div className="flex gap-3">
                   {([
                     { value: "light", label: "Light", icon: "☀️", description: "Always light" },
-                    { value: "system", label: "System", icon: "💻", description: "Match OS setting" },
                     { value: "dark", label: "Dark", icon: "🌙", description: "Always dark" },
                   ] as const).map((opt) => (
                     <button

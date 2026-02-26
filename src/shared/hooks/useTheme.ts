@@ -16,7 +16,10 @@ export function useTheme() {
 
   // Read from localStorage on mount
   useEffect(() => {
-    const stored = (localStorage.getItem("fastgrc-theme") as Theme) || "dark";
+    const raw = localStorage.getItem("fastgrc-theme") as Theme | null;
+    // Treat "system" (legacy) as "dark" — we no longer follow OS preference
+    const stored: Theme = !raw || raw === "system" ? "dark" : raw;
+    if (raw === "system") localStorage.setItem("fastgrc-theme", "dark");
     setThemeState(stored);
     applyTheme(stored);
   }, []);
