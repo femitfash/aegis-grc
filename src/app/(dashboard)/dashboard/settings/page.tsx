@@ -281,14 +281,15 @@ function SettingsPageInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contributors: 2, readonly_users: 0, interval: "year" }),
       });
-      const data = await res.json();
+      let data: { url?: string; error?: string } = {};
+      try { data = await res.json(); } catch { /* non-JSON response */ }
       if (data.url) {
         window.location.href = data.url;
       } else {
-        alert(data.error || "Billing is not configured yet. Please contact support@fastgrc.ai.");
+        alert(data.error || `Checkout failed (HTTP ${res.status}). Please contact support@fastgrc.ai.`);
       }
-    } catch {
-      alert("Could not start checkout. Please try again or contact support@fastgrc.ai.");
+    } catch (err) {
+      alert(`Could not reach the billing service. ${err instanceof Error ? err.message : ""} Please try again or contact support@fastgrc.ai.`);
     } finally {
       setUpgradeLoading(false);
     }
