@@ -65,8 +65,11 @@ function getAuthErrorMessage(error: { message: string; code?: string }): string 
     message.includes("smtp") ||
     message.includes("sending email") ||
     message.includes("send email") ||
+    message.includes("confirmation email") ||
+    message.includes("recovery email") ||
     message.includes("email could not be sent") ||
-    message.includes("email service")
+    message.includes("email service") ||
+    code === "unexpected_failure"
   ) {
     return "We're having trouble sending emails right now. Please try again shortly or contact support@fastgrc.ai.";
   }
