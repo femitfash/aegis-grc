@@ -108,7 +108,35 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = createAdminClient();
-    const { organization_id: organizationId, role } = await getUserRecord(user.id, admin);
+    let { organization_id: organizationId, role } = await getUserRecord(user.id, admin);
+
+    if (!organizationId) {
+      // Auto-provision an org for users whose signup trigger didn't fire
+      const orgName =
+        user.user_metadata?.organization_name ??
+        user.email?.split("@")[0] ??
+        "My Organization";
+      const orgSlug = `org-${user.id.slice(0, 8)}`;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: newOrg } = await (admin as any)
+        .from("organizations")
+        .insert({ name: orgName, slug: orgSlug, subscription_tier: "starter" })
+        .select("id")
+        .single();
+      if (newOrg?.id) {
+        organizationId = newOrg.id as string;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (admin as any).from("users").upsert({
+          id: user.id,
+          organization_id: organizationId,
+          email: user.email,
+          full_name: user.user_metadata?.full_name ?? user.email,
+          role: "admin",
+        });
+        role = "admin";
+      }
+    }
+
     if (!organizationId) return Response.json({ error: "Organization not found" }, { status: 404 });
 
     // Only admins/owners can create integrations

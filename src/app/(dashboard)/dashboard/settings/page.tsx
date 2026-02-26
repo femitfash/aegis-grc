@@ -38,13 +38,61 @@ interface Subscription {
 
 const ROLES = ["Admin", "Compliance Manager", "Risk Owner", "Auditor", "Viewer"];
 
-const INTEGRATIONS = [
-  { id: "jira", name: "Jira", description: "Sync risks and controls as Jira issues", icon: "🔵", status: "connected", detail: "Connected to acme.atlassian.net" },
-  { id: "slack", name: "Slack", description: "Get notifications and create items via Slack", icon: "💬", status: "connected", detail: "Connected to #grc-alerts" },
-  { id: "github", name: "GitHub Actions", description: "Auto-collect evidence from CI/CD pipelines", icon: "⚙️", status: "available", detail: null },
-  { id: "aws", name: "AWS Security Hub", description: "Import findings as risks automatically", icon: "☁️", status: "available", detail: null },
-  { id: "azure", name: "Azure Defender", description: "Sync security alerts and compliance data", icon: "🔷", status: "available", detail: null },
-  { id: "okta", name: "Okta", description: "Auto-collect access reviews and user activity", icon: "🔑", status: "available", detail: null },
+interface DbIntegration {
+  id: string;
+  provider: string;
+  name: string;
+  status: string;
+  last_sync_at: string | null;
+  config: Record<string, string>;
+}
+
+interface ProviderMeta {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  comingSoon?: boolean;
+  fields: { key: string; label: string; placeholder: string; type?: string }[];
+}
+
+const PROVIDER_META: ProviderMeta[] = [
+  {
+    id: "jira",
+    name: "Jira",
+    icon: "🔵",
+    description: "Sync risks and controls as Jira issues",
+    fields: [
+      { key: "host", label: "Jira URL", placeholder: "https://yourcompany.atlassian.net" },
+      { key: "email", label: "Atlassian Account Email", placeholder: "you@company.com" },
+      { key: "token", label: "API Token", placeholder: "Atlassian API token", type: "password" },
+      { key: "project_key", label: "Project Key", placeholder: "e.g. PROJ" },
+    ],
+  },
+  {
+    id: "slack",
+    name: "Slack",
+    icon: "💬",
+    description: "Get notifications and create items via Slack",
+    fields: [
+      { key: "bot_token", label: "Bot Token", placeholder: "xoxb-...", type: "password" },
+      { key: "channel", label: "Default Channel", placeholder: "#grc-alerts" },
+    ],
+  },
+  {
+    id: "github",
+    name: "GitHub Actions",
+    icon: "⚙️",
+    description: "Auto-collect evidence from CI/CD pipelines",
+    fields: [
+      { key: "token", label: "Personal Access Token", placeholder: "ghp_...", type: "password" },
+      { key: "org", label: "GitHub Organization", placeholder: "my-org" },
+      { key: "repo", label: "Repository (optional)", placeholder: "my-repo" },
+    ],
+  },
+  { id: "aws", name: "AWS Security Hub", icon: "☁️", description: "Import findings as risks automatically", comingSoon: true, fields: [] },
+  { id: "azure", name: "Azure Defender", icon: "🔷", description: "Sync security alerts and compliance data", comingSoon: true, fields: [] },
+  { id: "okta", name: "Okta", icon: "🔑", description: "Auto-collect access reviews and user activity", comingSoon: true, fields: [] },
 ];
 
 function fmt(n: number) {
@@ -104,6 +152,16 @@ function SettingsPageInner() {
   const [apiKeyError, setApiKeyError] = useState("");
   const [apiKeyLoading, setApiKeyLoading] = useState(false);
 
+  // Integrations
+  const [integrations, setIntegrations] = useState<DbIntegration[]>([]);
+  const [integrationsLoading, setIntegrationsLoading] = useState(false);
+  const [connectingProvider, setConnectingProvider] = useState<string | null>(null);
+  const [connectForm, setConnectForm] = useState<Record<string, string>>({});
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [connectError, setConnectError] = useState("");
+  const [connectSuccess, setConnectSuccess] = useState("");
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+
   useEffect(() => {
     if (activeTab === "organization") {
       fetch("/api/settings/organization")
@@ -142,6 +200,14 @@ function SettingsPageInner() {
         .then((r) => r.json())
         .then(setAiUsage)
         .catch(() => {});
+    }
+    if (activeTab === "integrations") {
+      setIntegrationsLoading(true);
+      fetch("/api/integrations")
+        .then((r) => r.json())
+        .then((data) => setIntegrations(data.integrations ?? []))
+        .catch(() => {})
+        .finally(() => setIntegrationsLoading(false));
     }
   }, [activeTab]);
 
@@ -247,6 +313,77 @@ function SettingsPageInner() {
       setApiKeyError(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setApiKeyLoading(false);
+    }
+  };
+
+  // ── Integration handlers ───────────────────────────────────────────────────
+  const loadIntegrations = () => {
+    fetch("/api/integrations")
+      .then((r) => r.json())
+      .then((data) => setIntegrations(data.integrations ?? []))
+      .catch(() => {});
+  };
+
+  const handleOpenConnect = (providerId: string) => {
+    setConnectingProvider(providerId);
+    setConnectForm({});
+    setConnectError("");
+    setConnectSuccess("");
+  };
+
+  const handleSaveConnect = async () => {
+    if (!connectingProvider) return;
+    setConnectLoading(true);
+    setConnectError("");
+    setConnectSuccess("");
+    try {
+      // 1. Save config to DB
+      const saveRes = await fetch("/api/integrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: connectingProvider, name: connectingProvider.charAt(0).toUpperCase() + connectingProvider.slice(1), config: connectForm }),
+      });
+      const saveData = await saveRes.json();
+      if (!saveRes.ok) {
+        setConnectError(saveData.error || "Failed to save integration");
+        return;
+      }
+      const integrationId = saveData.integration?.id;
+
+      // 2. Test the connection
+      const testRes = await fetch(`/api/integrations/${connectingProvider}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test", integration_id: integrationId }),
+      });
+      const testData = await testRes.json();
+      if (!testRes.ok || !testData.success) {
+        setConnectError(testData.error || "Connection test failed — please check your credentials");
+        return;
+      }
+
+      setConnectSuccess(testData.message || "Connected successfully!");
+      loadIntegrations();
+      setTimeout(() => {
+        setConnectingProvider(null);
+        setConnectSuccess("");
+      }, 1500);
+    } catch {
+      setConnectError("An unexpected error occurred. Please try again.");
+    } finally {
+      setConnectLoading(false);
+    }
+  };
+
+  const handleDisconnect = async (id: string) => {
+    setDisconnectingId(id);
+    try {
+      await fetch(`/api/integrations?id=${id}`, { method: "DELETE" });
+      loadIntegrations();
+    } catch {
+      // ignore
+    } finally {
+      setDisconnectingId(null);
     }
   };
 
@@ -726,29 +863,112 @@ function SettingsPageInner() {
                   <strong>Pro tip:</strong> Integrations automatically collect evidence and sync risk data, reducing manual effort by up to 70%.
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                {INTEGRATIONS.map((integration) => (
-                  <div key={integration.id} className="p-5 rounded-lg border bg-card hover:border-primary/30 transition-colors">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl">{integration.icon}</span>
-                        <div>
-                          <h3 className="font-semibold">{integration.name}</h3>
-                          {integration.detail && (
-                            <p className="text-xs text-green-600">{integration.detail}</p>
-                          )}
-                        </div>
-                      </div>
-                      {integration.status === "connected" ? (
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 font-medium">Connected</span>
-                      ) : (
-                        <button className="px-3 py-1 rounded-md text-xs bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">Connect</button>
-                      )}
+
+              {integrationsLoading ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="p-5 rounded-lg border bg-card animate-pulse">
+                      <div className="h-5 w-32 bg-muted rounded mb-2" />
+                      <div className="h-4 w-48 bg-muted rounded" />
                     </div>
-                    <p className="text-sm text-muted-foreground">{integration.description}</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  {PROVIDER_META.map((meta) => {
+                    const connected = integrations.find((i) => i.provider === meta.id && i.status === "active");
+                    const isConnecting = connectingProvider === meta.id;
+                    return (
+                      <div key={meta.id} className={`rounded-lg border bg-card transition-colors ${meta.comingSoon ? "opacity-60" : "hover:border-primary/30"}`}>
+                        <div className="p-5">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-2xl">{meta.icon}</span>
+                              <div>
+                                <h3 className="font-semibold">{meta.name}</h3>
+                                {connected && (
+                                  <p className="text-xs text-green-600">
+                                    {meta.id === "jira" && connected.config?.host
+                                      ? `Connected to ${(connected.config.host as string).replace(/^https?:\/\//, "")}`
+                                      : meta.id === "slack" && connected.config?.channel
+                                      ? `Connected to ${connected.config.channel}`
+                                      : meta.id === "github" && connected.config?.org
+                                      ? `Connected to ${connected.config.org}`
+                                      : "Connected"}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {meta.comingSoon ? (
+                                <span className="px-2 py-0.5 rounded-full text-xs bg-muted text-muted-foreground">Coming soon</span>
+                              ) : connected ? (
+                                <>
+                                  <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 font-medium">Connected</span>
+                                  <button
+                                    onClick={() => handleDisconnect(connected.id)}
+                                    disabled={disconnectingId === connected.id}
+                                    className="px-2 py-0.5 rounded text-xs border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                                  >
+                                    {disconnectingId === connected.id ? "…" : "Disconnect"}
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  onClick={() => handleOpenConnect(meta.id)}
+                                  className="px-3 py-1 rounded-md text-xs bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                                >
+                                  Connect
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{meta.description}</p>
+                        </div>
+
+                        {/* Inline connect form */}
+                        {isConnecting && (
+                          <div className="border-t p-5 space-y-3 bg-muted/30">
+                            {meta.fields.map((field) => (
+                              <div key={field.key} className="space-y-1">
+                                <label className="text-xs font-medium">{field.label}</label>
+                                <input
+                                  type={field.type === "password" ? "password" : "text"}
+                                  placeholder={field.placeholder}
+                                  value={connectForm[field.key] ?? ""}
+                                  onChange={(e) => setConnectForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                />
+                              </div>
+                            ))}
+                            {connectError && (
+                              <p className="text-xs text-destructive">{connectError}</p>
+                            )}
+                            {connectSuccess && (
+                              <p className="text-xs text-green-600 font-medium">{connectSuccess}</p>
+                            )}
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                onClick={handleSaveConnect}
+                                disabled={connectLoading}
+                                className="px-4 py-1.5 rounded-md text-xs bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                              >
+                                {connectLoading ? "Testing connection…" : "Save & Test"}
+                              </button>
+                              <button
+                                onClick={() => { setConnectingProvider(null); setConnectError(""); }}
+                                className="px-4 py-1.5 rounded-md text-xs border hover:bg-accent transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
