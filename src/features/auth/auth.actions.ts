@@ -61,7 +61,18 @@ function getAuthErrorMessage(error: { message: string; code?: string }): string 
   if (message.includes("email") && (message.includes("invalid") || message.includes("not found") || message.includes("format"))) {
     return "Please enter a valid email address.";
   }
+  if (
+    message.includes("smtp") ||
+    message.includes("sending email") ||
+    message.includes("send email") ||
+    message.includes("email could not be sent") ||
+    message.includes("email service")
+  ) {
+    return "We're having trouble sending emails right now. Please try again shortly or contact support@fastgrc.ai.";
+  }
 
+  // Log unrecognised errors so we can add them above
+  console.error("[getAuthErrorMessage] unhandled Supabase error:", JSON.stringify(error));
   return "An unexpected error occurred. Please try again.";
 }
 
@@ -153,6 +164,7 @@ export async function signUp(formData: FormData): Promise<AuthResult> {
   });
 
   if (error) {
+    console.error("[signUp] Supabase error:", JSON.stringify({ message: error.message, code: error.code, status: error.status }));
     return {
       success: false,
       error: {
