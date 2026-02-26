@@ -526,61 +526,68 @@ function SettingsPageInner() {
                   <div className="h-5 w-32 bg-muted rounded animate-pulse mb-4" />
                   <div className="h-4 w-64 bg-muted rounded animate-pulse" />
                 </div>
-              ) : subscription ? (
+              ) : (
                 <>
-                  {/* Current plan */}
-                  <div className="p-6 rounded-lg border bg-card">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h2 className="font-semibold mb-1">Current Plan</h2>
-                        <div className="flex items-center gap-2">
+                  {/* Current plan — shown regardless of whether a DB subscription row exists */}
+                  {(() => {
+                    const plan = subscription?.plan ?? "builder";
+                    const status = subscription?.status ?? "active";
+                    const isFreePlan = plan === "builder";
+                    const isGrowth = plan === "growth";
+                    return (
+                      <div className="p-6 rounded-lg border bg-card">
+                        <div className="flex items-start justify-between mb-2">
+                          <h2 className="font-semibold">Current Plan</h2>
+                          {subscription?.stripe_customer_id && (
+                            <button
+                              onClick={handleManageBilling}
+                              disabled={portalLoading}
+                              className="px-4 py-2 rounded-md border text-sm hover:bg-accent transition-colors disabled:opacity-50"
+                            >
+                              {portalLoading ? "Opening…" : "Manage Billing →"}
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 mb-4">
                           <span className={`text-sm font-semibold px-3 py-1 rounded-full ${
-                            subscription.plan === "growth" ? "bg-primary/10 text-primary" :
-                            subscription.plan === "enterprise" ? "bg-purple-100 text-purple-700" :
+                            isGrowth ? "bg-primary/10 text-primary" :
+                            plan === "enterprise" ? "bg-purple-100 text-purple-700" :
                             "bg-muted text-muted-foreground"
                           }`}>
-                            {planLabel(subscription.plan, subscription.status)}
+                            {planLabel(plan, status)}
                           </span>
-                          {subscription.status === "past_due" && (
+                          {status === "past_due" && (
                             <span className="text-xs text-red-600 font-medium">⚠ Payment past due</span>
                           )}
-                          {subscription.cancel_at_period_end && (
+                          {subscription?.cancel_at_period_end && (
                             <span className="text-xs text-yellow-600 font-medium">Cancels at period end</span>
                           )}
                         </div>
-                      </div>
-                      {subscription.stripe_customer_id ? (
-                        <button
-                          onClick={handleManageBilling}
-                          disabled={portalLoading}
-                          className="px-4 py-2 rounded-md border text-sm hover:bg-accent transition-colors disabled:opacity-50"
-                        >
-                          {portalLoading ? "Opening…" : "Manage Billing →"}
-                        </button>
-                      ) : null}
-                    </div>
 
-                    {subscription.plan === "builder" && (
-                      <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-4 flex items-center justify-between gap-4">
-                        <div>
-                          <p className="text-sm font-medium">Unlock unlimited AI + all frameworks</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            Upgrade to Growth — from $39/contributor/mo (annual) · 14-day free trial
-                          </p>
-                        </div>
-                        <button
-                          onClick={handleUpgradeClick}
-                          disabled={upgradeLoading}
-                          className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-                        >
-                          {upgradeLoading ? "Opening…" : "Upgrade to Growth →"}
-                        </button>
+                        {isFreePlan && (
+                          <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div>
+                              <p className="text-sm font-medium">Unlock unlimited AI + all frameworks</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Growth plan — from $39/contributor/mo (annual) · 14-day free trial · cancel anytime
+                              </p>
+                            </div>
+                            <button
+                              onClick={handleUpgradeClick}
+                              disabled={upgradeLoading}
+                              className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                            >
+                              {upgradeLoading ? "Opening…" : "Upgrade to Growth →"}
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    );
+                  })()}
 
-                  {/* Seat summary */}
-                  {subscription.plan !== "builder" && (
+                  {/* Seat summary — only for paid plans */}
+                  {subscription && subscription.plan !== "builder" && (
                     <div className="p-6 rounded-lg border bg-card">
                       <h2 className="font-semibold mb-4">Seats &amp; Billing</h2>
                       <div className="space-y-3">
@@ -636,7 +643,7 @@ function SettingsPageInner() {
                   )}
 
                   {/* Period info */}
-                  {subscription.current_period_end && (
+                  {subscription?.current_period_end && (
                     <div className="p-4 rounded-lg border bg-card text-sm text-muted-foreground">
                       {subscription.trial_end && new Date(subscription.trial_end) > new Date() ? (
                         <>Trial ends <strong>{new Date(subscription.trial_end).toLocaleDateString()}</strong> — no charge until then.</>
@@ -646,66 +653,67 @@ function SettingsPageInner() {
                     </div>
                   )}
 
-                  {/* Plan comparison — always visible so users know what else is available */}
-                  <div className="p-6 rounded-lg border bg-card">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="font-semibold">Compare Plans</h2>
-                      <a href="/#pricing" target="_blank" className="text-xs text-primary hover:underline">
-                        Full pricing ↗
-                      </a>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left pb-2 font-medium text-muted-foreground w-1/2">Feature</th>
-                            <th className="text-center pb-2 font-medium w-1/4">Builder<br /><span className="text-xs font-normal text-muted-foreground">Free</span></th>
-                            <th className={`text-center pb-2 font-medium w-1/4 ${subscription.plan !== "builder" ? "text-primary" : ""}`}>
-                              Growth<br /><span className="text-xs font-normal text-muted-foreground">$39/seat/mo</span>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {[
-                            ["AI copilot sessions", "10 total", "Unlimited"],
-                            ["Compliance frameworks", "3 (SOC 2, ISO, NIST)", "All frameworks + HIPAA"],
-                            ["Contributor seats", "1", "Unlimited"],
-                            ["Read-only users", "—", "Unlimited ($7.99/mo)"],
-                            ["Slack / Jira / GitHub", "—", "✓"],
-                            ["Audit-ready exports", "—", "✓"],
-                            ["Custom frameworks", "—", "✓"],
-                            ["Priority support", "—", "✓"],
-                          ].map(([feature, builder, growth]) => (
-                            <tr key={feature} className="hover:bg-muted/30">
-                              <td className="py-2 text-muted-foreground">{feature}</td>
-                              <td className="py-2 text-center text-muted-foreground">{builder}</td>
-                              <td className={`py-2 text-center font-medium ${subscription.plan !== "builder" ? "text-primary" : ""}`}>{growth}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {subscription.plan === "builder" && (
-                      <div className="mt-4 pt-4 border-t flex items-center justify-between gap-4">
-                        <p className="text-xs text-muted-foreground">14-day free trial · Cancel anytime · No credit card required to start</p>
-                        <button
-                          onClick={handleUpgradeClick}
-                          disabled={upgradeLoading}
-                          className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-                        >
-                          {upgradeLoading ? "Opening…" : "Upgrade to Growth →"}
-                        </button>
+                  {/* Plan comparison — always visible */}
+                  {(() => {
+                    const plan = subscription?.plan ?? "builder";
+                    const isFreePlan = plan === "builder";
+                    return (
+                      <div className="p-6 rounded-lg border bg-card">
+                        <div className="flex items-center justify-between mb-4">
+                          <h2 className="font-semibold">Compare Plans</h2>
+                          <a href="/#pricing" target="_blank" className="text-xs text-primary hover:underline">
+                            Full pricing ↗
+                          </a>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b">
+                                <th className="text-left pb-2 font-medium text-muted-foreground w-1/2">Feature</th>
+                                <th className="text-center pb-2 font-medium w-1/4">
+                                  Builder<br /><span className="text-xs font-normal text-muted-foreground">Free forever</span>
+                                </th>
+                                <th className={`text-center pb-2 font-medium w-1/4 ${!isFreePlan ? "text-primary" : ""}`}>
+                                  Growth<br /><span className="text-xs font-normal text-muted-foreground">$39/seat/mo</span>
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {[
+                                ["AI copilot sessions", "10 total", "Unlimited"],
+                                ["Compliance frameworks", "3 (SOC 2, ISO, NIST)", "All frameworks + HIPAA"],
+                                ["Contributor seats", "1", "Unlimited"],
+                                ["Read-only users", "—", "Unlimited ($7.99/mo)"],
+                                ["Slack / Jira / GitHub", "—", "✓"],
+                                ["Audit-ready exports", "—", "✓"],
+                                ["Custom frameworks", "—", "✓"],
+                                ["Priority support", "—", "✓"],
+                              ].map(([feature, builder, growth]) => (
+                                <tr key={feature} className="hover:bg-muted/30">
+                                  <td className="py-2 text-muted-foreground">{feature}</td>
+                                  <td className={`py-2 text-center ${isFreePlan ? "font-medium" : "text-muted-foreground"}`}>{builder}</td>
+                                  <td className={`py-2 text-center font-medium ${!isFreePlan ? "text-primary" : ""}`}>{growth}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        {isFreePlan && (
+                          <div className="mt-4 pt-4 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                            <p className="text-xs text-muted-foreground">14-day free trial · Cancel anytime · No credit card required to start</p>
+                            <button
+                              onClick={handleUpgradeClick}
+                              disabled={upgradeLoading}
+                              className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                            >
+                              {upgradeLoading ? "Opening…" : "Upgrade to Growth →"}
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    );
+                  })()}
                 </>
-              ) : (
-                <div className="p-6 rounded-lg border bg-card text-center text-sm text-muted-foreground">
-                  No billing record found.
-                  <button onClick={handleUpgradeClick} disabled={upgradeLoading} className="ml-2 text-primary underline disabled:opacity-50">
-                    {upgradeLoading ? "Opening…" : "Upgrade to Growth"}
-                  </button>
-                </div>
               )}
             </div>
           )}

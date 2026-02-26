@@ -20,8 +20,40 @@ export async function POST(request: NextRequest) {
     .eq("id", user.id)
     .single();
 
-  if (!userData?.organization_id) {
-    return Response.json({ error: "No organization found" }, { status: 400 });
+  let organizationId: string | null = userData?.organization_id ?? null;
+
+  if (!organizationId) {
+    // Auto-provision an org for users whose trigger didn't fire (same pattern as copilot/execute)
+    const orgName =
+      user.user_metadata?.organization_name ??
+      user.email?.split("@")[0] ??
+      "My Organization";
+    const orgSlug = `org-${user.id.slice(0, 8)}`;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: newOrg } = await (admin as any)
+      .from("organizations")
+      .insert({ name: orgName, slug: orgSlug, subscription_tier: "starter" })
+      .select("id")
+      .single();
+
+    if (!newOrg?.id) {
+      return Response.json({ error: "Failed to provision organization" }, { status: 500 });
+    }
+
+    organizationId = newOrg.id as string;
+
+    // Link user to the new org
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (admin as any)
+      .from("users")
+      .upsert({
+        id: user.id,
+        organization_id: organizationId,
+        email: user.email,
+        full_name: user.user_metadata?.full_name ?? user.email,
+        role: "admin",
+      });
   }
 
   const body = await request.json();
@@ -34,7 +66,7 @@ export async function POST(request: NextRequest) {
   const { data: sub } = await (admin as any)
     .from("subscriptions")
     .select("stripe_customer_id")
-    .eq("organization_id", userData.organization_id)
+    .eq("organization_id", organizationId)
     .single();
 
   let customerId: string | undefined = sub?.stripe_customer_id ?? undefined;
@@ -44,13 +76,13 @@ export async function POST(request: NextRequest) {
     const { data: org } = await (admin as any)
       .from("organizations")
       .select("name")
-      .eq("id", userData.organization_id)
+      .eq("id", organizationId)
       .single();
 
     const customer = await stripe.customers.create({
       email: user.email,
       name: org?.name ?? undefined,
-      metadata: { organization_id: userData.organization_id },
+      metadata: { organization_id: organizationId },
     });
     customerId = customer.id;
 
@@ -59,7 +91,7 @@ export async function POST(request: NextRequest) {
     await (admin as any)
       .from("subscriptions")
       .upsert(
-        { organization_id: userData.organization_id, stripe_customer_id: customerId },
+        { organization_id: organizationId, stripe_customer_id: customerId },
         { onConflict: "organization_id" }
       );
   }
@@ -91,7 +123,7 @@ export async function POST(request: NextRequest) {
     subscription_data: {
       trial_period_days: 14,
       metadata: {
-        organization_id: userData.organization_id,
+        organization_id: organizationId,
         seats_contributors: String(contributors),
         seats_readonly: String(readonly_users),
       },
