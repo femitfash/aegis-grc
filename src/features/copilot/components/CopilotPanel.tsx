@@ -80,6 +80,26 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
       });
       const data = await res.json();
 
+      if (res.status === 401) {
+        // Session expired
+        setMessages((prev) =>
+          prev.map((m) => ({
+            ...m,
+            actions: m.actions?.map((a) =>
+              a.id === action.id ? { ...a, status: "rejected" as const } : a
+            ),
+          }))
+        );
+        const sessionMsg: Message = {
+          id: generateId(),
+          role: "assistant",
+          content: `🔒 **Session expired**\n\nYour session has expired. Please [sign in again](/login) to continue.`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, sessionMsg]);
+        return;
+      }
+
       if (res.status === 402) {
         // Free tier limit reached — show upgrade prompt
         const limitMsg: Message = {

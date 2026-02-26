@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { DISPLAY_PRICES } from "@/shared/lib/stripe";
@@ -58,7 +58,7 @@ function planLabel(plan: string, status: string) {
   return "Builder (Free)";
 }
 
-export default function SettingsPage() {
+function SettingsPageInner() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>("organization");
   const { theme, setTheme } = useTheme();
@@ -982,5 +982,13 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <SettingsPageInner />
+    </Suspense>
   );
 }
