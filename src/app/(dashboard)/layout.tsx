@@ -16,6 +16,7 @@ const navigation = [
   { name: "Policies", href: "/dashboard/policies", icon: "📜" },
   { name: "Vendors", href: "/dashboard/vendors", icon: "🏢" },
   { name: "Incidents", href: "/dashboard/incidents", icon: "🚨" },
+  { name: "Agents", href: "/dashboard/agents", icon: "🤖" },
   { name: "Integrations", href: "/dashboard/integrations", icon: "🔌" },
   { name: "Reports", href: "/dashboard/reports", icon: "📈" },
   { name: "Audit Log", href: "/dashboard/audit-log", icon: "🔒" },
