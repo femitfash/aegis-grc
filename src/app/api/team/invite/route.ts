@@ -2,6 +2,43 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/shared/lib/supabase/server";
 import { createAdminClient } from "@/shared/lib/supabase/admin";
 
+export async function DELETE(request: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await request.json();
+  if (!id) return Response.json({ error: "Invite ID required" }, { status: 400 });
+
+  const admin = createAdminClient();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: me } = await (admin as any)
+    .from("users")
+    .select("organization_id, role")
+    .eq("id", user.id)
+    .single();
+
+  if (!me?.organization_id) {
+    return Response.json({ error: "No organization found" }, { status: 400 });
+  }
+
+  if (!["admin", "compliance_manager"].includes(me.role)) {
+    return Response.json({ error: "Only admins can cancel invites" }, { status: 403 });
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (admin as any)
+    .from("invites")
+    .delete()
+    .eq("id", id)
+    .eq("organization_id", me.organization_id);
+
+  if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  return Response.json({ success: true });
+}
+
 const VALID_ROLES = ["admin", "compliance_manager", "risk_owner", "auditor", "viewer"];
 
 export async function POST(request: NextRequest) {

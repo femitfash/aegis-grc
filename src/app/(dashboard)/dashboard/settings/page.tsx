@@ -12,6 +12,7 @@ interface TeamMember {
   email: string;
   full_name: string | null;
   role: string;
+  status: string; // active | suspended
   last_active_at: string | null;
   created_at: string;
 }
@@ -139,6 +140,9 @@ function SettingsPageInner() {
   const [inviteError, setInviteError] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState("");
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [cancelingInviteId, setCancelingInviteId] = useState<string | null>(null);
+  const [suspendingId, setSuspendingId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   // Billing
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -278,6 +282,66 @@ function SettingsPageInner() {
       // silently fail — the existing invite is still valid
     } finally {
       setResendingId(null);
+    }
+  };
+
+  const refreshTeam = () =>
+    fetch("/api/team/members")
+      .then((r) => r.json())
+      .then((d) => { setTeamMembers(d.members ?? []); setPendingInvites(d.invites ?? []); })
+      .catch(() => {});
+
+  const handleCancelInvite = async (invite: PendingInvite) => {
+    if (!confirm(`Cancel the invite for ${invite.email}?`)) return;
+    setCancelingInviteId(invite.id);
+    try {
+      await fetch("/api/team/invite", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: invite.id }),
+      });
+      await refreshTeam();
+    } catch {
+      // silently ignore
+    } finally {
+      setCancelingInviteId(null);
+    }
+  };
+
+  const handleToggleSuspend = async (member: TeamMember) => {
+    const isSuspended = member.status === "suspended";
+    const action = isSuspended ? "Unsuspend" : "Suspend";
+    if (!confirm(`${action} ${member.full_name || member.email}?`)) return;
+    setSuspendingId(member.id);
+    try {
+      const res = await fetch(`/api/team/members/${member.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: isSuspended ? "active" : "suspended" }),
+      });
+      const data = await res.json();
+      if (data.member) {
+        setTeamMembers((prev) =>
+          prev.map((m) => (m.id === member.id ? { ...m, status: data.member.status } : m))
+        );
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setSuspendingId(null);
+    }
+  };
+
+  const handleRemoveMember = async (member: TeamMember) => {
+    if (!confirm(`Remove ${member.full_name || member.email} from the organization? This cannot be undone.`)) return;
+    setRemovingId(member.id);
+    try {
+      await fetch(`/api/team/members/${member.id}`, { method: "DELETE" });
+      setTeamMembers((prev) => prev.filter((m) => m.id !== member.id));
+    } catch {
+      // silently ignore
+    } finally {
+      setRemovingId(null);
     }
   };
 
@@ -628,10 +692,35 @@ function SettingsPageInner() {
                                 </span>
                               </td>
                               <td className="px-4 py-3">
-                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Active</span>
+                                {member.status === "suspended" ? (
+                                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">Suspended</span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Active</span>
+                                )}
                               </td>
                               <td className="px-4 py-3 text-xs text-muted-foreground">{lastActive}</td>
-                              <td className="px-4 py-3" />
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => handleToggleSuspend(member)}
+                                    disabled={suspendingId === member.id}
+                                    className="px-2 py-1 rounded text-xs border border-orange-300 text-orange-700 hover:bg-orange-50 transition-colors disabled:opacity-50"
+                                  >
+                                    {suspendingId === member.id
+                                      ? "…"
+                                      : member.status === "suspended"
+                                        ? "Unsuspend"
+                                        : "Suspend"}
+                                  </button>
+                                  <button
+                                    onClick={() => handleRemoveMember(member)}
+                                    disabled={removingId === member.id}
+                                    className="px-2 py-1 rounded text-xs border border-red-300 text-red-700 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                  >
+                                    {removingId === member.id ? "…" : "Remove"}
+                                  </button>
+                                </div>
+                              </td>
                             </tr>
                           );
                         })}
@@ -661,13 +750,22 @@ function SettingsPageInner() {
                               Expires {new Date(invite.expires_at).toLocaleDateString()}
                             </td>
                             <td className="px-4 py-3">
-                              <button
-                                onClick={() => handleResendInvite(invite)}
-                                disabled={resendingId === invite.id}
-                                className="px-2 py-1 rounded text-xs border border-primary/30 text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
-                              >
-                                {resendingId === invite.id ? "Sending…" : "Resend"}
-                              </button>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => handleResendInvite(invite)}
+                                  disabled={resendingId === invite.id || cancelingInviteId === invite.id}
+                                  className="px-2 py-1 rounded text-xs border border-primary/30 text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+                                >
+                                  {resendingId === invite.id ? "Sending…" : "Resend"}
+                                </button>
+                                <button
+                                  onClick={() => handleCancelInvite(invite)}
+                                  disabled={cancelingInviteId === invite.id || resendingId === invite.id}
+                                  className="px-2 py-1 rounded text-xs border border-red-300 text-red-700 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                >
+                                  {cancelingInviteId === invite.id ? "…" : "Cancel"}
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}

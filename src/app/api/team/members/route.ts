@@ -22,7 +22,7 @@ export async function GET() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (admin as any)
       .from("users")
-      .select("id, email, full_name, role, last_active_at, created_at")
+      .select("id, email, full_name, role, status, last_active_at, created_at")
       .eq("organization_id", me.organization_id)
       .order("created_at"),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
