@@ -138,6 +138,7 @@ function SettingsPageInner() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState("");
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   // Billing
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -260,6 +261,23 @@ function SettingsPageInner() {
       setInviteError(err instanceof Error ? err.message : "Failed to send invite");
     } finally {
       setInviteLoading(false);
+    }
+  };
+
+  const handleResendInvite = async (invite: PendingInvite) => {
+    setResendingId(invite.id);
+    try {
+      await fetch("/api/team/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: invite.email, role: invite.role }),
+      });
+      setInviteSuccess(`Invite resent to ${invite.email}`);
+      setTimeout(() => setInviteSuccess(""), 3000);
+    } catch {
+      // silently fail — the existing invite is still valid
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -577,6 +595,7 @@ function SettingsPageInner() {
                           <th className="text-left px-4 py-2 font-medium text-muted-foreground">Role</th>
                           <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status</th>
                           <th className="text-left px-4 py-2 font-medium text-muted-foreground">Last Active</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -612,6 +631,7 @@ function SettingsPageInner() {
                                 <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Active</span>
                               </td>
                               <td className="px-4 py-3 text-xs text-muted-foreground">{lastActive}</td>
+                              <td className="px-4 py-3" />
                             </tr>
                           );
                         })}
@@ -640,11 +660,20 @@ function SettingsPageInner() {
                             <td className="px-4 py-3 text-xs text-muted-foreground">
                               Expires {new Date(invite.expires_at).toLocaleDateString()}
                             </td>
+                            <td className="px-4 py-3">
+                              <button
+                                onClick={() => handleResendInvite(invite)}
+                                disabled={resendingId === invite.id}
+                                className="px-2 py-1 rounded text-xs border border-primary/30 text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+                              >
+                                {resendingId === invite.id ? "Sending…" : "Resend"}
+                              </button>
+                            </td>
                           </tr>
                         ))}
                         {teamMembers.length === 0 && pendingInvites.length === 0 && (
                           <tr>
-                            <td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                            <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">
                               No team members yet. Invite your first colleague above.
                             </td>
                           </tr>
