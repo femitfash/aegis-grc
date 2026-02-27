@@ -49,7 +49,8 @@ function InviteCallbackInner() {
       // Session is now established — provision user into the invited org
       await fetch("/api/team/accept-invite", { method: "POST" });
 
-      router.replace("/dashboard");
+      // New invited users have no password — send them to set one before entering the app
+      router.replace("/reset-password?invite=1");
     }
 
     accept();

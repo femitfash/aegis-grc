@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { updatePassword } from "../auth.actions";
 import { AuthAlert } from "./AuthAlert";
 import { PasswordInput } from "./PasswordInput";
 
 export function ResetPasswordForm() {
+  const searchParams = useSearchParams();
+  const isInvite = searchParams.get("invite") === "1";
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -37,10 +40,12 @@ export function ResetPasswordForm() {
       {/* Header */}
       <div className="text-center space-y-2">
         <h1 className="text-2xl font-bold tracking-tight">
-          Set a new password
+          {isInvite ? "Welcome to FastGRC!" : "Set a new password"}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Enter your new password below. Make sure it&apos;s strong and unique.
+          {isInvite
+            ? "Your account is ready. Set a password to complete your setup."
+            : "Enter your new password below. Make sure it\u2019s strong and unique."}
         </p>
       </div>
 
@@ -98,7 +103,7 @@ export function ResetPasswordForm() {
               Updating password...
             </span>
           ) : (
-            "Update password"
+            isInvite ? "Set password & continue" : "Update password"
           )}
         </button>
       </form>
