@@ -136,7 +136,8 @@ function SettingsPageInner() {
   const [userRole, setUserRole] = useState<string | null>(null);
 
   const ADMIN_ONLY_TABS: Tab[] = ["team", "billing", "integrations", "notifications", "security"];
-  const isAdminOrOwner = userRole === "owner" || userRole === "admin";
+  // null = still loading; don't restrict until we actually know the role
+  const isAdminOrOwner = userRole === null || userRole === "owner" || userRole === "admin";
 
   // Read ?tab and ?upgraded from URL on first mount (after role is known)
   useEffect(() => {

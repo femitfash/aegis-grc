@@ -18,8 +18,40 @@ export async function GET(_request: NextRequest) {
       .eq("id", user.id)
       .single();
 
+    // Auto-provision: new users who have never hit the team/members endpoint
+    // won't have a users row yet — create their org and users row here.
     if (!userData?.organization_id) {
-      return Response.json({ organization: null, user_role: userData?.role ?? null });
+      const orgName =
+        user.user_metadata?.organization_name ??
+        user.user_metadata?.full_name ??
+        user.email?.split("@")[0] ??
+        "My Organization";
+      const orgSlug = `org-${user.id.slice(0, 8)}`;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: newOrg } = await (admin as any)
+        .from("organizations")
+        .upsert({ name: orgName, slug: orgSlug, subscription_tier: "starter" }, { onConflict: "slug" })
+        .select("id, name, slug, settings")
+        .single();
+
+      if (newOrg?.id) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (admin as any).from("users").upsert(
+          { id: user.id, organization_id: newOrg.id, email: user.email ?? "", full_name: user.user_metadata?.full_name ?? null, role: "owner", status: "active" },
+          { onConflict: "id" }
+        );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (admin as any).from("subscriptions").upsert(
+          { organization_id: newOrg.id, plan: "builder", status: "active", seats_contributors: 1 },
+          { onConflict: "organization_id" }
+        );
+        return Response.json({
+          organization: { id: newOrg.id, name: newOrg.name || "", slug: newOrg.slug || "", industry: newOrg.settings?.industry || "", company_size: newOrg.settings?.company_size || "" },
+          user_role: "owner",
+        });
+      }
+      return Response.json({ organization: null, user_role: "owner" });
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
