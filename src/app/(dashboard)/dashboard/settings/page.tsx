@@ -995,7 +995,7 @@ function SettingsPageInner() {
                             <button
                               onClick={() => setShowUpgradeModal(true)}
                               disabled={upgradeLoading}
-                              className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                              className="shrink-0 whitespace-nowrap rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                             >
                               {upgradeLoading ? "Opening…" : "Upgrade to Growth →"}
                             </button>
@@ -1148,7 +1148,7 @@ function SettingsPageInner() {
                               <button
                                 onClick={() => setShowUpgradeModal(true)}
                                 disabled={upgradeLoading}
-                                className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                                className="shrink-0 whitespace-nowrap rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                               >
                                 {upgradeLoading ? "Opening…" : "Upgrade to Growth →"}
                               </button>

@@ -13,16 +13,27 @@ import type { AuthResult } from "@/types/auth.types";
 
 /**
  * Get the base URL for auth redirects.
- * Priority: origin header → host headers → NEXT_PUBLIC_APP_URL → localhost
+ *
+ * In production we always use NEXT_PUBLIC_APP_URL so that every auth
+ * redirect (email confirmation, OAuth, invite) goes to the single canonical
+ * domain registered in Supabase. Using the request Origin header in
+ * production caused www vs non-www mismatches when Supabase only allows one.
+ *
+ * In local development we fall back to the request origin so that localhost
+ * still works without setting the env var.
  */
 async function getBaseUrl(): Promise<string> {
-  const headerStore = await headers();
+  // Production: use the explicitly configured canonical URL.
+  const configured = process.env.NEXT_PUBLIC_APP_URL;
+  if (configured && !configured.includes("localhost")) {
+    return configured;
+  }
 
-  // Most reliable: the Origin header sent by browsers on same-origin requests
+  // Development: derive from request headers so localhost works automatically.
+  const headerStore = await headers();
   const origin = headerStore.get("origin");
   if (origin) return origin;
 
-  // Fallback: reconstruct from Host / X-Forwarded-Host (works on Vercel, nginx, etc.)
   const host =
     headerStore.get("x-forwarded-host") || headerStore.get("host");
   if (host) {
@@ -30,8 +41,7 @@ async function getBaseUrl(): Promise<string> {
     return `${proto}://${host}`;
   }
 
-  // Last resort: explicit env var (must be set to production URL in Vercel dashboard)
-  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  return configured || "http://localhost:3000";
 }
 
 /**

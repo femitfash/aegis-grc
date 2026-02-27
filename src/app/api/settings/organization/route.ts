@@ -19,8 +19,63 @@ export async function GET(_request: NextRequest) {
       .single();
 
     // Auto-provision: new users who have never hit the team/members endpoint
-    // won't have a users row yet — create their org and users row here.
+    // won't have a users row yet. Before creating a new org, check if there is
+    // a pending invite — if so, join the invited org instead.
     if (!userData?.organization_id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: pendingInvite } = await (admin as any)
+        .from("invites")
+        .select("organization_id, role")
+        .eq("email", (user.email ?? "").toLowerCase())
+        .is("accepted_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (pendingInvite?.organization_id) {
+        // Join the invited org rather than creating a new one
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (admin as any).from("users").upsert(
+          {
+            id: user.id,
+            organization_id: pendingInvite.organization_id,
+            email: user.email ?? "",
+            full_name: user.user_metadata?.full_name ?? null,
+            role: pendingInvite.role ?? "viewer",
+            status: "active",
+          },
+          { onConflict: "id" }
+        );
+        // Mark invite as accepted
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (admin as any)
+          .from("invites")
+          .update({ accepted_at: new Date().toISOString() })
+          .eq("organization_id", pendingInvite.organization_id)
+          .eq("email", (user.email ?? "").toLowerCase())
+          .is("accepted_at", null);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: invitedOrg } = await (admin as any)
+          .from("organizations")
+          .select("id, name, slug, settings")
+          .eq("id", pendingInvite.organization_id)
+          .single();
+
+        return Response.json({
+          organization: {
+            id: invitedOrg?.id ?? pendingInvite.organization_id,
+            name: invitedOrg?.name ?? "",
+            slug: invitedOrg?.slug ?? "",
+            industry: invitedOrg?.settings?.industry ?? "",
+            company_size: invitedOrg?.settings?.company_size ?? "",
+          },
+          user_role: pendingInvite.role ?? "viewer",
+        });
+      }
+
+      // No pending invite — create a brand-new org for this user
       const orgName =
         user.user_metadata?.organization_name ??
         user.user_metadata?.full_name ??
