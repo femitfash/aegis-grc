@@ -293,16 +293,20 @@ function SettingsPageInner() {
 
   const handleResendInvite = async (invite: PendingInvite) => {
     setResendingId(invite.id);
+    setInviteError("");
+    setInviteSuccess("");
     try {
-      await fetch("/api/team/invite", {
+      const res = await fetch("/api/team/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: invite.email, role: invite.role }),
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to resend invite");
       setInviteSuccess(`Invite resent to ${invite.email}`);
-      setTimeout(() => setInviteSuccess(""), 3000);
-    } catch {
-      // silently fail — the existing invite is still valid
+      setTimeout(() => setInviteSuccess(""), 4000);
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : "Failed to resend invite");
     } finally {
       setResendingId(null);
     }

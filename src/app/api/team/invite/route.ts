@@ -102,8 +102,27 @@ export async function POST(request: NextRequest) {
 
   if (inviteError) {
     console.error("[invite] Supabase invite error:", inviteError.message);
-    // 422 usually means user already exists — Supabase will still send the link
-    if (!inviteError.message.includes("already")) {
+    // 422 / "already been registered" means user exists — Supabase still sends the link
+    if (inviteError.message.toLowerCase().includes("already")) {
+      // fall through — upsert the invite record and return success
+    } else {
+      const msg = inviteError.message.toLowerCase();
+      if (
+        msg.includes("rate limit") ||
+        msg.includes("too many") ||
+        msg.includes("daily limit") ||
+        msg.includes("quota") ||
+        msg.includes("smtp") ||
+        msg.includes("send email") ||
+        msg.includes("sending email") ||
+        msg.includes("email could not be sent") ||
+        msg.includes("unexpected_failure")
+      ) {
+        return Response.json(
+          { error: "Email sending limit reached. Please wait a few minutes before sending more invites, or check your email provider quota." },
+          { status: 429 }
+        );
+      }
       return Response.json({ error: inviteError.message }, { status: 500 });
     }
   }

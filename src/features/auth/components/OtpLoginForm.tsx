@@ -93,10 +93,23 @@ export function OtpLoginForm({ onSwitchToPassword }: OtpLoginFormProps) {
     if (countdown > 0 || isLoading) return;
     setError(null);
     setOtp("");
-    const formData = new FormData();
-    formData.set("email", email);
-    await signInWithOtp(formData);
-    startCountdown();
+    setIsLoading(true);
+    try {
+      const formData = new FormData();
+      formData.set("email", email);
+      const result = await signInWithOtp(formData);
+      if (!result.success && result.error) {
+        setError(result.error.message);
+      } else {
+        startCountdown();
+      }
+    } catch (err) {
+      if (err instanceof Error && !err.message.includes("NEXT_REDIRECT")) {
+        setError("An unexpected error occurred. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
