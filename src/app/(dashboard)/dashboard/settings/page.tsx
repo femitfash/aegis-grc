@@ -132,12 +132,26 @@ function SettingsPageInner() {
   const [activeTab, setActiveTab] = useState<Tab>("organization");
   const { theme, setTheme } = useTheme();
 
-  // Read ?tab and ?upgraded from URL on first mount
+  // Current user role (for tab access control)
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  const ADMIN_ONLY_TABS: Tab[] = ["team", "integrations", "notifications", "security"];
+  const isAdminOrOwner = userRole === "owner" || userRole === "admin";
+
+  // Read ?tab and ?upgraded from URL on first mount (after role is known)
   useEffect(() => {
+    if (userRole === null) return; // wait until role is loaded
     const validTabs: Tab[] = ["organization", "team", "billing", "integrations", "notifications", "security", "appearance", "ai"];
     const urlTab = searchParams.get("tab") as Tab | null;
-    if (urlTab && validTabs.includes(urlTab)) setActiveTab(urlTab);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (urlTab && validTabs.includes(urlTab)) {
+      // Redirect restricted tabs to "organization" for non-admins
+      if (ADMIN_ONLY_TABS.includes(urlTab) && !isAdminOrOwner) {
+        setActiveTab("organization");
+      } else {
+        setActiveTab(urlTab);
+      }
+    }
+  }, [userRole]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const justUpgraded = searchParams.get("upgraded") === "true";
 
@@ -193,11 +207,22 @@ function SettingsPageInner() {
   const [connectSuccess, setConnectSuccess] = useState("");
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
 
+  // Fetch role once on mount (independent of active tab)
+  useEffect(() => {
+    fetch("/api/settings/organization")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.user_role) setUserRole(data.user_role);
+      })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (activeTab === "organization") {
       fetch("/api/settings/organization")
         .then((r) => r.json())
         .then((data) => {
+          if (data.user_role) setUserRole(data.user_role);
           if (data.organization) {
             setOrgName(data.organization.name || "");
             setOrgSlug(data.organization.slug || "");
@@ -549,16 +574,17 @@ function SettingsPageInner() {
         (subscription.billing_interval === "year" ? DISPLAY_PRICES.readonly_annual : DISPLAY_PRICES.readonly_monthly) / 100
     : 0;
 
-  const tabs: { id: Tab; label: string; icon: string }[] = [
+  const allTabs: { id: Tab; label: string; icon: string; adminOnly?: boolean }[] = [
     { id: "organization", label: "Organization", icon: "🏢" },
-    { id: "team", label: "Team", icon: "👥" },
+    { id: "team", label: "Team", icon: "👥", adminOnly: true },
     { id: "billing", label: "Billing", icon: "💳" },
-    { id: "integrations", label: "Integrations", icon: "🔗" },
-    { id: "notifications", label: "Notifications", icon: "🔔" },
-    { id: "security", label: "Security", icon: "🔒" },
+    { id: "integrations", label: "Integrations", icon: "🔗", adminOnly: true },
+    { id: "notifications", label: "Notifications", icon: "🔔", adminOnly: true },
+    { id: "security", label: "Security", icon: "🔒", adminOnly: true },
     { id: "appearance", label: "Appearance", icon: "🎨" },
     { id: "ai", label: "AI Copilot", icon: "🤖" },
   ];
+  const tabs = allTabs.filter((t) => !t.adminOnly || isAdminOrOwner);
 
   return (
     <div>
@@ -595,15 +621,23 @@ function SettingsPageInner() {
           {activeTab === "organization" && (
             <div className="space-y-6">
               <div className="p-6 rounded-lg border bg-card">
-                <h2 className="font-semibold mb-4">Organization Details</h2>
+                <div className="flex items-center gap-3 mb-4">
+                  <h2 className="font-semibold">Organization Details</h2>
+                  {!isAdminOrOwner && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground border">
+                      View only
+                    </span>
+                  )}
+                </div>
                 <div className="space-y-4 max-w-lg">
                   <div>
                     <label className="block text-sm font-medium mb-1">Organization Name</label>
                     <input
                       type="text"
                       value={orgName}
-                      onChange={(e) => setOrgName(e.target.value)}
-                      className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      onChange={(e) => isAdminOrOwner && setOrgName(e.target.value)}
+                      readOnly={!isAdminOrOwner}
+                      className={`w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary ${!isAdminOrOwner ? "cursor-default opacity-70" : ""}`}
                     />
                   </div>
                   <div>
@@ -613,8 +647,9 @@ function SettingsPageInner() {
                       <input
                         type="text"
                         value={orgSlug}
-                        onChange={(e) => setOrgSlug(e.target.value)}
-                        className="flex-1 px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        onChange={(e) => isAdminOrOwner && setOrgSlug(e.target.value)}
+                        readOnly={!isAdminOrOwner}
+                        className={`flex-1 px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary ${!isAdminOrOwner ? "cursor-default opacity-70" : ""}`}
                       />
                     </div>
                   </div>
@@ -623,7 +658,8 @@ function SettingsPageInner() {
                     <select
                       value={orgIndustry}
                       onChange={(e) => setOrgIndustry(e.target.value)}
-                      className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      disabled={!isAdminOrOwner}
+                      className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-70 disabled:cursor-default"
                     >
                       <option>Technology / SaaS</option>
                       <option>Financial Services</option>
@@ -637,7 +673,8 @@ function SettingsPageInner() {
                     <select
                       value={orgSize}
                       onChange={(e) => setOrgSize(e.target.value)}
-                      className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      disabled={!isAdminOrOwner}
+                      className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-70 disabled:cursor-default"
                     >
                       <option>1-50 employees</option>
                       <option>51-200 employees</option>
@@ -645,23 +682,27 @@ function SettingsPageInner() {
                       <option>1000+ employees</option>
                     </select>
                   </div>
-                  {saveError && <p className="text-sm text-destructive">{saveError}</p>}
-                  <button
-                    onClick={handleSave}
-                    disabled={orgLoading}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50 ${
-                      saved ? "bg-green-600 text-white" : "bg-primary text-primary-foreground hover:bg-primary/90"
-                    }`}
-                  >
-                    {saved ? "✅ Saved!" : orgLoading ? "Saving…" : "Save Changes"}
-                  </button>
+                  {isAdminOrOwner && (
+                    <>
+                      {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+                      <button
+                        onClick={handleSave}
+                        disabled={orgLoading}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50 ${
+                          saved ? "bg-green-600 text-white" : "bg-primary text-primary-foreground hover:bg-primary/90"
+                        }`}
+                      >
+                        {saved ? "✅ Saved!" : orgLoading ? "Saving…" : "Save Changes"}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
           {/* ── Team ─────────────────────────────────────────────────────── */}
-          {activeTab === "team" && (
+          {activeTab === "team" && isAdminOrOwner && (
             <div className="space-y-6">
               <div className="p-6 rounded-lg border bg-card">
                 <div className="flex items-center justify-between mb-4">
@@ -1097,7 +1138,7 @@ function SettingsPageInner() {
           )}
 
           {/* ── Integrations ─────────────────────────────────────────────── */}
-          {activeTab === "integrations" && (
+          {activeTab === "integrations" && isAdminOrOwner && (
             <div className="space-y-4">
               <div className="p-4 rounded-lg border bg-primary/5 border-primary/20">
                 <p className="text-sm text-primary">
@@ -1214,7 +1255,7 @@ function SettingsPageInner() {
           )}
 
           {/* ── Notifications ────────────────────────────────────────────── */}
-          {activeTab === "notifications" && (
+          {activeTab === "notifications" && isAdminOrOwner && (
             <div className="p-6 rounded-lg border bg-card">
               <h2 className="font-semibold mb-4">Notification Preferences</h2>
               <div className="space-y-4 max-w-lg">
@@ -1241,7 +1282,7 @@ function SettingsPageInner() {
           )}
 
           {/* ── Security ─────────────────────────────────────────────────── */}
-          {activeTab === "security" && (
+          {activeTab === "security" && isAdminOrOwner && (
             <div className="space-y-4">
               <div className="p-6 rounded-lg border bg-card">
                 <h2 className="font-semibold mb-4">Authentication</h2>

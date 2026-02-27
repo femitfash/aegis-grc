@@ -14,12 +14,12 @@ export async function GET(_request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: userData } = await (admin as any)
       .from("users")
-      .select("organization_id")
+      .select("organization_id, role")
       .eq("id", user.id)
       .single();
 
     if (!userData?.organization_id) {
-      return Response.json({ organization: null });
+      return Response.json({ organization: null, user_role: userData?.role ?? null });
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -30,7 +30,7 @@ export async function GET(_request: NextRequest) {
       .single();
 
     if (error) {
-      return Response.json({ organization: null, error: error.message });
+      return Response.json({ organization: null, user_role: userData.role ?? null, error: error.message });
     }
 
     return Response.json({
@@ -41,6 +41,7 @@ export async function GET(_request: NextRequest) {
         industry: org.settings?.industry || "",
         company_size: org.settings?.company_size || "",
       },
+      user_role: userData.role ?? null,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
