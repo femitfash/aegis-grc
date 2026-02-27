@@ -55,12 +55,16 @@ In Supabase dashboard, set these subject lines alongside the templates:
 
 ---
 
-## Important: Invite Template Redirect
+## Important: Invite Template Link Format
 
-The invite template uses `{{ .ConfirmationURL }}` which routes through Supabase's auth server and then redirects to our app. The redirect URL is configured in the invite API route (`src/app/api/team/invite/route.ts`) as:
+The invite template uses `{{ .TokenHash }}` directly — **not** `{{ .ConfirmationURL }}`.
 
 ```
-${APP_URL}/auth/invite-callback
+{{ .SiteURL }}/auth/invite-callback?token_hash={{ .TokenHash }}&type=invite
 ```
 
-Ensure `https://yourapp.com/auth/invite-callback` is added to **Authentication → URL Configuration → Redirect URLs** in your Supabase dashboard.
+**Why `token_hash` instead of `ConfirmationURL`:**
+`{{ .ConfirmationURL }}` routes through Supabase's auth server and redirects back to your app with a PKCE `code`. Exchanging that code requires a `code_verifier` cookie that only exists when the user initiated an auth flow in their browser — which never happens for email invite links. Using `token_hash` directly lets the callback call `verifyOtp()`, which has no PKCE dependency and works reliably for all users (new and existing).
+
+**Supabase dashboard — Site URL:**
+Go to **Authentication → URL Configuration** and ensure **Site URL** is set to your production URL (e.g. `https://www.fastgrc.ai`). The `{{ .SiteURL }}` variable in the template resolves to this value.
