@@ -346,10 +346,14 @@ export async function signInWithOtp(formData: FormData): Promise<AuthResult> {
   }
 
   const supabase = await createClient();
+  const baseUrl = await getBaseUrl();
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { shouldCreateUser: false },
+    options: {
+      shouldCreateUser: false,
+      emailRedirectTo: `${baseUrl}/auth/callback`,
+    },
   });
 
   if (error) {
