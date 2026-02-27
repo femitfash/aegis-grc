@@ -76,6 +76,7 @@ export async function GET() {
         created_at: new Date().toISOString(),
       }],
       invites: [],
+      current_user_id: user.id,
     });
   }
 
@@ -113,5 +114,5 @@ export async function GET() {
     });
   }
 
-  return Response.json({ members, invites: invites ?? [] });
+  return Response.json({ members, invites: invites ?? [], current_user_id: user.id });
 }

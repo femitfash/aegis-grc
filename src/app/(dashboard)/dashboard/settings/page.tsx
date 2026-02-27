@@ -39,6 +39,26 @@ interface Subscription {
 
 const ROLES = ["Owner", "Admin", "Compliance Manager", "Risk Owner", "Auditor", "Viewer"];
 
+interface ConfirmDialog {
+  open: boolean;
+  title: string;
+  message: string;
+  irreversible: boolean;
+  confirmLabel: string;
+  variant: "danger" | "warning";
+  onConfirm: () => void;
+}
+
+const CLOSED_DIALOG: ConfirmDialog = {
+  open: false,
+  title: "",
+  message: "",
+  irreversible: false,
+  confirmLabel: "Confirm",
+  variant: "danger",
+  onConfirm: () => {},
+};
+
 interface DbIntegration {
   id: string;
   provider: string;
@@ -133,6 +153,7 @@ function SettingsPageInner() {
   // Team
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [teamLoading, setTeamLoading] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("Viewer");
@@ -143,6 +164,7 @@ function SettingsPageInner() {
   const [cancelingInviteId, setCancelingInviteId] = useState<string | null>(null);
   const [suspendingId, setSuspendingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog>(CLOSED_DIALOG);
 
   // Billing
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -192,6 +214,7 @@ function SettingsPageInner() {
         .then((data) => {
           setTeamMembers(data.members ?? []);
           setPendingInvites(data.invites ?? []);
+          if (data.current_user_id) setCurrentUserId(data.current_user_id);
         })
         .catch(() => {})
         .finally(() => setTeamLoading(false));
@@ -288,61 +311,96 @@ function SettingsPageInner() {
   const refreshTeam = () =>
     fetch("/api/team/members")
       .then((r) => r.json())
-      .then((d) => { setTeamMembers(d.members ?? []); setPendingInvites(d.invites ?? []); })
+      .then((d) => {
+        setTeamMembers(d.members ?? []);
+        setPendingInvites(d.invites ?? []);
+        if (d.current_user_id) setCurrentUserId(d.current_user_id);
+      })
       .catch(() => {});
 
-  const handleCancelInvite = async (invite: PendingInvite) => {
-    if (!confirm(`Cancel the invite for ${invite.email}?`)) return;
-    setCancelingInviteId(invite.id);
-    try {
-      await fetch("/api/team/invite", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: invite.id }),
-      });
-      await refreshTeam();
-    } catch {
-      // silently ignore
-    } finally {
-      setCancelingInviteId(null);
-    }
+  const handleCancelInvite = (invite: PendingInvite) => {
+    setConfirmDialog({
+      open: true,
+      title: "Cancel invite",
+      message: `Cancel the pending invite for ${invite.email}? They will no longer be able to use this invite link.`,
+      irreversible: true,
+      confirmLabel: "Cancel invite",
+      variant: "danger",
+      onConfirm: async () => {
+        setConfirmDialog(CLOSED_DIALOG);
+        setCancelingInviteId(invite.id);
+        try {
+          await fetch("/api/team/invite", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: invite.id }),
+          });
+          await refreshTeam();
+        } catch {
+          // silently ignore
+        } finally {
+          setCancelingInviteId(null);
+        }
+      },
+    });
   };
 
-  const handleToggleSuspend = async (member: TeamMember) => {
+  const handleToggleSuspend = (member: TeamMember) => {
     const isSuspended = member.status === "suspended";
-    const action = isSuspended ? "Unsuspend" : "Suspend";
-    if (!confirm(`${action} ${member.full_name || member.email}?`)) return;
-    setSuspendingId(member.id);
-    try {
-      const res = await fetch(`/api/team/members/${member.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: isSuspended ? "active" : "suspended" }),
-      });
-      const data = await res.json();
-      if (data.member) {
-        setTeamMembers((prev) =>
-          prev.map((m) => (m.id === member.id ? { ...m, status: data.member.status } : m))
-        );
-      }
-    } catch {
-      // silently ignore
-    } finally {
-      setSuspendingId(null);
-    }
+    setConfirmDialog({
+      open: true,
+      title: isSuspended ? "Unsuspend member" : "Suspend member",
+      message: isSuspended
+        ? `Restore access for ${member.full_name || member.email}? They will be able to log in again immediately.`
+        : `Suspend ${member.full_name || member.email}? They will lose access to the platform immediately.`,
+      irreversible: false,
+      confirmLabel: isSuspended ? "Unsuspend" : "Suspend",
+      variant: "warning",
+      onConfirm: async () => {
+        setConfirmDialog(CLOSED_DIALOG);
+        setSuspendingId(member.id);
+        try {
+          const res = await fetch(`/api/team/members/${member.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: isSuspended ? "active" : "suspended" }),
+          });
+          const data = await res.json();
+          if (data.member) {
+            setTeamMembers((prev) =>
+              prev.map((m) => (m.id === member.id ? { ...m, status: data.member.status } : m))
+            );
+          }
+        } catch {
+          // silently ignore
+        } finally {
+          setSuspendingId(null);
+        }
+      },
+    });
   };
 
-  const handleRemoveMember = async (member: TeamMember) => {
-    if (!confirm(`Remove ${member.full_name || member.email} from the organization? This cannot be undone.`)) return;
-    setRemovingId(member.id);
-    try {
-      await fetch(`/api/team/members/${member.id}`, { method: "DELETE" });
-      setTeamMembers((prev) => prev.filter((m) => m.id !== member.id));
-    } catch {
-      // silently ignore
-    } finally {
-      setRemovingId(null);
-    }
+  const handleRemoveMember = (member: TeamMember) => {
+    setConfirmDialog({
+      open: true,
+      title: "Remove member",
+      message: `Remove ${member.full_name || member.email} from the organization? They will immediately lose access to all data and workspaces.`,
+      irreversible: true,
+      confirmLabel: "Remove member",
+      variant: "danger",
+      onConfirm: async () => {
+        setConfirmDialog(CLOSED_DIALOG);
+        setRemovingId(member.id);
+        try {
+          await fetch(`/api/team/members/${member.id}`, { method: "DELETE" });
+          setTeamMembers((prev) => prev.filter((m) => m.id !== member.id));
+        } catch {
+          // silently ignore
+        } finally {
+          setRemovingId(null);
+        }
+      },
+    });
   };
 
   const handleManageBilling = async () => {
@@ -700,26 +758,30 @@ function SettingsPageInner() {
                               </td>
                               <td className="px-4 py-3 text-xs text-muted-foreground">{lastActive}</td>
                               <td className="px-4 py-3">
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() => handleToggleSuspend(member)}
-                                    disabled={suspendingId === member.id}
-                                    className="px-2 py-1 rounded text-xs border border-orange-300 text-orange-700 hover:bg-orange-50 transition-colors disabled:opacity-50"
-                                  >
-                                    {suspendingId === member.id
-                                      ? "…"
-                                      : member.status === "suspended"
-                                        ? "Unsuspend"
-                                        : "Suspend"}
-                                  </button>
-                                  <button
-                                    onClick={() => handleRemoveMember(member)}
-                                    disabled={removingId === member.id}
-                                    className="px-2 py-1 rounded text-xs border border-red-300 text-red-700 hover:bg-red-50 transition-colors disabled:opacity-50"
-                                  >
-                                    {removingId === member.id ? "…" : "Remove"}
-                                  </button>
-                                </div>
+                                {member.id === currentUserId ? (
+                                  <span className="text-xs text-muted-foreground italic">You</span>
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => handleToggleSuspend(member)}
+                                      disabled={suspendingId === member.id}
+                                      className="px-2 py-1 rounded text-xs border border-orange-300 text-orange-700 hover:bg-orange-50 transition-colors disabled:opacity-50"
+                                    >
+                                      {suspendingId === member.id
+                                        ? "…"
+                                        : member.status === "suspended"
+                                          ? "Unsuspend"
+                                          : "Suspend"}
+                                    </button>
+                                    <button
+                                      onClick={() => handleRemoveMember(member)}
+                                      disabled={removingId === member.id}
+                                      className="px-2 py-1 rounded text-xs border border-red-300 text-red-700 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                    >
+                                      {removingId === member.id ? "…" : "Remove"}
+                                    </button>
+                                  </div>
+                                )}
                               </td>
                             </tr>
                           );
@@ -1384,6 +1446,62 @@ function SettingsPageInner() {
 
         </div>
       </div>
+
+      {/* ── Confirmation modal ───────────────────────────────────────────── */}
+      {confirmDialog.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-xl border bg-card shadow-2xl overflow-hidden">
+            <div className="px-6 pt-6 pb-5">
+              <div className={`w-11 h-11 rounded-full flex items-center justify-center mb-4 ${
+                confirmDialog.variant === "danger" ? "bg-red-100 dark:bg-red-900/30" : "bg-orange-100 dark:bg-orange-900/30"
+              }`}>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`w-5 h-5 ${confirmDialog.variant === "danger" ? "text-red-600" : "text-orange-600"}`}
+                >
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </div>
+              <h3 className="text-base font-semibold">{confirmDialog.title}</h3>
+              <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{confirmDialog.message}</p>
+              {confirmDialog.irreversible && (
+                <div className="mt-3 flex items-start gap-2 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40 px-3 py-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-red-600 shrink-0 mt-0.5">
+                    <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  <p className="text-xs text-red-700 dark:text-red-400 font-medium">This action cannot be undone.</p>
+                </div>
+              )}
+            </div>
+            <div className="px-6 pb-6 flex gap-3">
+              <button
+                onClick={() => setConfirmDialog(CLOSED_DIALOG)}
+                className="flex-1 px-4 py-2 rounded-lg border text-sm hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDialog.onConfirm}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
+                  confirmDialog.variant === "danger"
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-orange-500 hover:bg-orange-600"
+                }`}
+              >
+                {confirmDialog.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Upgrade seat-selector modal ──────────────────────────────────── */}
       {showUpgradeModal && (() => {
