@@ -135,7 +135,7 @@ function SettingsPageInner() {
   // Current user role (for tab access control)
   const [userRole, setUserRole] = useState<string | null>(null);
 
-  const ADMIN_ONLY_TABS: Tab[] = ["team", "integrations", "notifications", "security"];
+  const ADMIN_ONLY_TABS: Tab[] = ["team", "billing", "integrations", "notifications", "security"];
   const isAdminOrOwner = userRole === "owner" || userRole === "admin";
 
   // Read ?tab and ?upgraded from URL on first mount (after role is known)
@@ -178,6 +178,7 @@ function SettingsPageInner() {
   const [cancelingInviteId, setCancelingInviteId] = useState<string | null>(null);
   const [suspendingId, setSuspendingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [changingRoleId, setChangingRoleId] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog>(CLOSED_DIALOG);
 
   // Billing
@@ -334,6 +335,25 @@ function SettingsPageInner() {
       setInviteError(err instanceof Error ? err.message : "Failed to resend invite");
     } finally {
       setResendingId(null);
+    }
+  };
+
+  const handleChangeRole = async (member: TeamMember, newRole: string) => {
+    setChangingRoleId(member.id);
+    setInviteError("");
+    try {
+      const res = await fetch(`/api/team/members/${member.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: newRole }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to change role");
+      setTeamMembers((prev) => prev.map((m) => m.id === member.id ? { ...m, role: data.member?.role ?? newRole } : m));
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : "Failed to change role");
+    } finally {
+      setChangingRoleId(null);
     }
   };
 
@@ -577,7 +597,7 @@ function SettingsPageInner() {
   const allTabs: { id: Tab; label: string; icon: string; adminOnly?: boolean }[] = [
     { id: "organization", label: "Organization", icon: "🏢" },
     { id: "team", label: "Team", icon: "👥", adminOnly: true },
-    { id: "billing", label: "Billing", icon: "💳" },
+    { id: "billing", label: "Billing", icon: "💳", adminOnly: true },
     { id: "integrations", label: "Integrations", icon: "🔗", adminOnly: true },
     { id: "notifications", label: "Notifications", icon: "🔔", adminOnly: true },
     { id: "security", label: "Security", icon: "🔒", adminOnly: true },
@@ -790,9 +810,26 @@ function SettingsPageInner() {
                                 </div>
                               </td>
                               <td className="px-4 py-3">
-                                <span className="px-2 py-0.5 rounded text-xs bg-secondary capitalize">
-                                  {member.role.replace(/_/g, " ")}
-                                </span>
+                                {/* Admins/owners can change roles of others; owners can change owner role */}
+                                {isAdminOrOwner && member.id !== currentUserId && (userRole === "owner" || member.role !== "owner") ? (
+                                  <select
+                                    value={member.role}
+                                    onChange={(e) => handleChangeRole(member, e.target.value)}
+                                    disabled={changingRoleId === member.id}
+                                    className="px-2 py-0.5 rounded text-xs bg-secondary border border-transparent hover:border-border focus:outline-none focus:ring-1 focus:ring-primary capitalize disabled:opacity-50 cursor-pointer"
+                                  >
+                                    {userRole === "owner" && <option value="owner">owner</option>}
+                                    <option value="admin">admin</option>
+                                    <option value="compliance_manager">compliance manager</option>
+                                    <option value="risk_owner">risk owner</option>
+                                    <option value="auditor">auditor</option>
+                                    <option value="viewer">viewer</option>
+                                  </select>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded text-xs bg-secondary capitalize">
+                                    {member.role.replace(/_/g, " ")}
+                                  </span>
+                                )}
                               </td>
                               <td className="px-4 py-3">
                                 {member.status === "suspended" ? (
@@ -892,7 +929,7 @@ function SettingsPageInner() {
           )}
 
           {/* ── Billing ──────────────────────────────────────────────────── */}
-          {activeTab === "billing" && (
+          {activeTab === "billing" && isAdminOrOwner && (
             <div className="space-y-6">
               {/* Success banner after upgrade or portal return */}
               {justUpgraded && (

@@ -3,7 +3,7 @@ import { createClient } from "@/shared/lib/supabase/server";
 import { createAdminClient } from "@/shared/lib/supabase/admin";
 
 const VALID_ROLES = ["owner", "admin", "compliance_manager", "risk_owner", "auditor", "viewer"];
-const CAN_MANAGE = ["owner", "admin", "compliance_manager"];
+const CAN_MANAGE = ["owner", "admin"];
 
 /** PATCH — suspend/unsuspend a member or change their role */
 export async function PATCH(
@@ -53,6 +53,10 @@ export async function PATCH(
     const normalized = body.role.toLowerCase().replace(/ /g, "_");
     if (!VALID_ROLES.includes(normalized)) {
       return Response.json({ error: "Invalid role" }, { status: 400 });
+    }
+    // Only owners can grant or revoke the owner role
+    if (normalized === "owner" && me.role !== "owner") {
+      return Response.json({ error: "Only an owner can assign the owner role" }, { status: 403 });
     }
     update.role = normalized;
   }
