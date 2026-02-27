@@ -23,7 +23,7 @@ export async function DELETE(request: NextRequest) {
     return Response.json({ error: "No organization found" }, { status: 400 });
   }
 
-  if (!["admin", "compliance_manager"].includes(me.role)) {
+  if (!CAN_INVITE.includes(me.role)) {
     return Response.json({ error: "Only admins can cancel invites" }, { status: 403 });
   }
 
@@ -39,7 +39,8 @@ export async function DELETE(request: NextRequest) {
   return Response.json({ success: true });
 }
 
-const VALID_ROLES = ["admin", "compliance_manager", "risk_owner", "auditor", "viewer"];
+const VALID_ROLES = ["owner", "admin", "compliance_manager", "risk_owner", "auditor", "viewer"];
+const CAN_INVITE = ["owner", "admin", "compliance_manager"];
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "No organization found" }, { status: 400 });
   }
 
-  if (!["admin", "compliance_manager"].includes(me.role)) {
+  if (!CAN_INVITE.includes(me.role)) {
     return Response.json({ error: "Only admins can invite team members" }, { status: 403 });
   }
 
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
       invited_org_id: me.organization_id,
       invited_role: normalizedRole,
     },
-    redirectTo: `${appUrl}/auth/callback?type=invite`,
+    redirectTo: `${appUrl}/auth/invite-callback`,
   });
 
   if (inviteError) {

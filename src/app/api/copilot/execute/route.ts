@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
             organization_id: organizationId,
             email: user.email,
             full_name: user.user_metadata?.full_name ?? user.email,
-            role: "admin",
+            role: "owner",
           });
       }
     }

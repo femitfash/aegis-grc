@@ -37,7 +37,7 @@ interface Subscription {
   stripe_customer_id: string | null;
 }
 
-const ROLES = ["Admin", "Compliance Manager", "Risk Owner", "Auditor", "Viewer"];
+const ROLES = ["Owner", "Admin", "Compliance Manager", "Risk Owner", "Auditor", "Viewer"];
 
 interface DbIntegration {
   id: string;

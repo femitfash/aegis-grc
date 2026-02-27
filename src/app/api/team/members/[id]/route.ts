@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/shared/lib/supabase/server";
 import { createAdminClient } from "@/shared/lib/supabase/admin";
 
-const VALID_ROLES = ["admin", "compliance_manager", "risk_owner", "auditor", "viewer"];
+const VALID_ROLES = ["owner", "admin", "compliance_manager", "risk_owner", "auditor", "viewer"];
+const CAN_MANAGE = ["owner", "admin", "compliance_manager"];
 
 /** PATCH — suspend/unsuspend a member or change their role */
 export async function PATCH(
@@ -28,7 +29,7 @@ export async function PATCH(
     return Response.json({ error: "No organization found" }, { status: 400 });
   }
 
-  if (!["admin", "compliance_manager"].includes(me.role)) {
+  if (!CAN_MANAGE.includes(me.role)) {
     return Response.json({ error: "Only admins can modify team members" }, { status: 403 });
   }
 
@@ -98,7 +99,7 @@ export async function DELETE(
     return Response.json({ error: "No organization found" }, { status: 400 });
   }
 
-  if (!["admin", "compliance_manager"].includes(me.role)) {
+  if (!CAN_MANAGE.includes(me.role)) {
     return Response.json({ error: "Only admins can remove team members" }, { status: 403 });
   }
 
