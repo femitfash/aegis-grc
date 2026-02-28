@@ -72,8 +72,23 @@ export async function POST(request: NextRequest) {
     const writeCount: number = orgSettings.copilot_write_count || 0;
     const hasCustomKey = Boolean(orgSettings.anthropic_api_key);
 
-    // Enforce free tier limit unless org has their own API key
-    if (writeCount >= FREE_LIMIT && !hasCustomKey) {
+    // Check if the org has an active paid subscription (even if downgraded but not yet expired)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: subData } = await (admin as any)
+      .from("subscriptions")
+      .select("plan, status, current_period_end")
+      .eq("organization_id", organizationId)
+      .single();
+
+    const isPaidPlan = subData?.plan && subData.plan !== "builder";
+    const isActiveSubscription = subData?.status === "active" || subData?.status === "trialing";
+    const hasNotExpired = subData?.current_period_end
+      ? new Date(subData.current_period_end) > new Date()
+      : false;
+    const hasPaidAccess = (isPaidPlan && isActiveSubscription) || (isPaidPlan && hasNotExpired);
+
+    // Enforce free tier limit unless org has their own API key or an active paid subscription
+    if (writeCount >= FREE_LIMIT && !hasCustomKey && !hasPaidAccess) {
       return Response.json(
         {
           error: "free_limit_reached",
