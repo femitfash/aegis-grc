@@ -54,8 +54,8 @@ export default function Home() {
       <section className="relative overflow-hidden px-6 pb-24 pt-20 md:pt-32">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,hsl(var(--primary)/0.15),transparent)]" />
         <div className="mx-auto max-w-4xl text-center">
-          <p className="mb-4 text-lg font-semibold tracking-wide text-primary md:text-2xl">
-            Introducing FastGRC.ai - a GRC AI Copilot
+          <p className="mb-4 text-lg font-semibold tracking-wide md:text-2xl">
+            Introducing <span className="text-red-500">FastGRC.ai</span> <span className="text-primary">- your AI Copilot for GRC</span>
           </p>
 
           <h1 className="mb-6 font-display text-4xl font-bold md:text-7xl">
