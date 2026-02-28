@@ -84,7 +84,7 @@ export default function DashboardLayout({
         )}
 
         {/* Copilot toggle */}
-        <div className="px-4 pt-2">
+        <div className="px-4 pt-2 pb-3">
           <button
             onClick={() => setCopilotOpen(!copilotOpen)}
             className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
@@ -95,7 +95,7 @@ export default function DashboardLayout({
         </div>
 
         {/* User menu */}
-        <div className="p-4 border-t">
+        <div className="px-4 py-3 border-t">
           <UserMenu />
         </div>
       </aside>

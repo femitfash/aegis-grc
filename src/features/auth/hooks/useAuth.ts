@@ -51,7 +51,12 @@ export function useAuth(): UseAuthReturn {
 
   const signOut = useCallback(async () => {
     const supabase = createClient();
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {
+      // Even if the Supabase call fails (timeout, network), clear local state
+      // and redirect so the user isn't stuck on a broken session.
+    }
     router.push("/login");
     router.refresh();
   }, [router]);
