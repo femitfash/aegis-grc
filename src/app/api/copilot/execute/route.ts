@@ -80,12 +80,14 @@ export async function POST(request: NextRequest) {
       .eq("organization_id", organizationId)
       .single();
 
-    const isPaidPlan = subData?.plan && subData.plan !== "builder";
     const isActiveSubscription = subData?.status === "active" || subData?.status === "trialing";
     const hasNotExpired = subData?.current_period_end
       ? new Date(subData.current_period_end) > new Date()
       : false;
-    const hasPaidAccess = (isPaidPlan && isActiveSubscription) || (isPaidPlan && hasNotExpired);
+    // Grant paid access if the subscription is active/trialing AND period hasn't expired.
+    // This covers canceled-but-not-yet-expired subscriptions where the plan column
+    // may have been prematurely set back to "builder".
+    const hasPaidAccess = isActiveSubscription && hasNotExpired;
 
     // Enforce free tier limit unless org has their own API key or an active paid subscription
     if (writeCount >= FREE_LIMIT && !hasCustomKey && !hasPaidAccess) {
