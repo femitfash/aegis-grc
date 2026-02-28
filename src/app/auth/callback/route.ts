@@ -45,6 +45,14 @@ async function provisionInvitedUser(
 }
 
 function buildRedirect(origin: string, forwardedHost: string | null, path: string) {
+  // Production: always redirect to the canonical URL to avoid www vs non-www
+  // mismatches that cause "site cannot be reached" errors.
+  const canonical = process.env.NEXT_PUBLIC_APP_URL;
+  if (canonical && !canonical.includes("localhost")) {
+    return `${canonical}${path}`;
+  }
+
+  // Development: derive from request headers so localhost works automatically.
   const isLocal = process.env.NODE_ENV === "development";
   if (isLocal || !forwardedHost) return `${origin}${path}`;
   return `https://${forwardedHost}${path}`;
