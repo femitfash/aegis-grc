@@ -146,7 +146,7 @@ export function PricingSection() {
                 {[
                   "Dashboard: risks, controls, evidence & audit log",
                   "Choose 1 framework: SOC 2, ISO 27001, NIST CSF, or HIPAA",
-                  "PDF exports (FastGRC watermark)",
+                  "PDF exports (FastGRC.ai watermark)",
                   "Data stored in your preferred region (EU / US)",
                   "No integrations on free plan",
                   "Upgrade anytime — data carries over",
@@ -320,7 +320,7 @@ export function PricingSection() {
             {[
               {
                 q: `What does "Unlimited AI Copilot (fair use)" mean?`,
-                a: `On the Growth plan, AI sessions are unlimited for normal team use. Fair use means we reserve the right to throttle accounts sending thousands of automated requests — something that never affects teams using FastGRC the way it's designed.`,
+                a: `On the Growth plan, AI sessions are unlimited for normal team use. Fair use means we reserve the right to throttle accounts sending thousands of automated requests — something that never affects teams using FastGRC.ai the way it's designed.`,
               },
               {
                 q: "Why does Growth require a minimum of 2 contributors?",

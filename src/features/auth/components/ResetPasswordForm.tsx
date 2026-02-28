@@ -40,7 +40,7 @@ export function ResetPasswordForm() {
       {/* Header */}
       <div className="text-center space-y-2">
         <h1 className="text-2xl font-bold tracking-tight">
-          {isInvite ? "Welcome to FastGRC!" : "Set a new password"}
+          {isInvite ? "Welcome to FastGRC.ai!" : "Set a new password"}
         </h1>
         <p className="text-sm text-muted-foreground">
           {isInvite

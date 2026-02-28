@@ -54,18 +54,17 @@ export default function Home() {
       <section className="relative overflow-hidden px-6 pb-24 pt-20 md:pt-32">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,hsl(var(--primary)/0.15),transparent)]" />
         <div className="mx-auto max-w-4xl text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/50 px-4 py-1.5 text-xs font-medium text-muted-foreground">
-            <Zap className="h-3.5 w-3.5 text-primary" />
-            AI-Native GRC Platform · SOC 2 · ISO 27001 · NIST · GitHub · Jira · Slack
-          </div>
+          <p className="mb-4 text-lg font-semibold tracking-wide text-primary md:text-2xl">
+            Introducing FastGRC.ai - a GRC AI Copilot
+          </p>
 
           <h1 className="mb-6 font-display text-4xl font-bold md:text-7xl">
-            Just type what you need.{" "}
+            Describe what you need.{" "}
             <span className="text-primary">The AI does the rest.</span>
           </h1>
 
           <p className="mx-auto mb-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
-            FastGRC replaces complex GRC dashboards and long forms with a single
+            FastGRC.ai replaces complex GRC dashboards and long forms with a single
             AI chat. Describe risks in plain English, and the platform creates
             records, maps controls to frameworks, and tracks evidence — automatically.
           </p>
@@ -101,7 +100,7 @@ export default function Home() {
               <span className="h-3 w-3 rounded-full bg-red-500/70" />
               <span className="h-3 w-3 rounded-full bg-yellow-500/70" />
               <span className="h-3 w-3 rounded-full bg-green-500/70" />
-              <span className="ml-3 text-xs text-muted-foreground">FastGRC Copilot</span>
+              <span className="ml-3 text-xs text-muted-foreground">FastGRC.ai Copilot</span>
             </div>
             <div className="space-y-4 p-6 text-left text-sm">
               <div className="flex gap-3">
@@ -159,7 +158,7 @@ export default function Home() {
               Zero forms. Just describe what you need.
             </h2>
             <p className="mx-auto max-w-xl text-muted-foreground">
-              Every action in FastGRC can be done through conversation. Here are a few examples of what
+              Every action in FastGRC.ai can be done through conversation. Here are a few examples of what
               you can say — no training required.
             </p>
           </div>
@@ -274,7 +273,7 @@ export default function Home() {
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-8">
               <div className="mb-6 flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-primary" />
-                <span className="font-semibold text-primary">FastGRC</span>
+                <span className="font-semibold text-primary">FastGRC.ai</span>
               </div>
               <ul className="space-y-4 text-sm text-muted-foreground">
                 {[
@@ -322,7 +321,7 @@ export default function Home() {
                 icon: TrendingDown,
                 title: "Zero-Field Risk Entry",
                 description:
-                  "Say 'our AWS S3 buckets might be public.' FastGRC extracts title, description, likelihood, impact score, and suggests a mitigation control — automatically.",
+                  "Say 'our AWS S3 buckets might be public.' FastGRC.ai extracts title, description, likelihood, impact score, and suggests a mitigation control — automatically.",
               },
               {
                 icon: FileCheck,
@@ -346,7 +345,7 @@ export default function Home() {
                 icon: Globe,
                 title: "Bring Your Own API Key",
                 description:
-                  "Use FastGRC free for your first 10 AI actions. Then connect your own AI API key for unlimited usage at cost. No vendor lock-in.",
+                  "Use FastGRC.ai free for your first 10 AI actions. Then connect your own AI API key for unlimited usage at cost. No vendor lock-in.",
               },
               {
                 icon: GitBranch,
@@ -392,7 +391,7 @@ export default function Home() {
                 step: "02",
                 title: "Describe your risks in plain English",
                 description:
-                  "Open the AI copilot and type what you're worried about. 'Our third-party vendors don't have security questionnaires.' FastGRC creates a properly scored risk with suggested controls.",
+                  "Open the AI copilot and type what you're worried about. 'Our third-party vendors don't have security questionnaires.' FastGRC.ai creates a properly scored risk with suggested controls.",
                 icon: MessageSquare,
               },
               {
@@ -464,7 +463,7 @@ export default function Home() {
         <div className="mx-auto max-w-5xl">
           <div className="mb-16 text-center">
             <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
-              How FastGRC compares to Vanta, Drata & Thoropass
+              How FastGRC.ai compares to Vanta, Drata & Thoropass
             </h2>
             <p className="text-muted-foreground">
               Other GRC platforms bolt AI on as a sidebar. We built AI as the foundation.
@@ -476,7 +475,7 @@ export default function Home() {
               <thead>
                 <tr className="border-b border-border bg-muted/50">
                   <th className="px-6 py-4 text-left font-medium text-muted-foreground">Feature</th>
-                  <th className="px-6 py-4 text-center font-semibold text-primary">FastGRC</th>
+                  <th className="px-6 py-4 text-center font-semibold text-primary">FastGRC.ai</th>
                   <th className="px-6 py-4 text-center font-medium text-muted-foreground">Vanta</th>
                   <th className="px-6 py-4 text-center font-medium text-muted-foreground">Drata</th>
                   <th className="px-6 py-4 text-center font-medium text-muted-foreground">Thoropass</th>
@@ -660,7 +659,7 @@ export default function Home() {
 
           <div className="border-t border-border pt-8 text-center text-xs text-muted-foreground">
             <p>
-              © {new Date().getFullYear()} FastGRC. Built for security teams that value their time.
+              © {new Date().getFullYear()} FastGRC.ai. Built for security teams that value their time.
             </p>
           </div>
         </div>

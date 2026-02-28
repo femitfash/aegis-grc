@@ -126,7 +126,7 @@ export default function PromptsPage() {
             </ul>
 
             <div className="mt-8 rounded-xl border border-primary/20 bg-primary/5 p-4">
-              <p className="text-sm font-semibold">Try it in FastGRC</p>
+              <p className="text-sm font-semibold">Try it in FastGRC.ai</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Copy a prompt, open the Copilot panel, and paste it in. No setup needed.
               </p>
@@ -179,7 +179,7 @@ export default function PromptsPage() {
         <div className="mx-auto max-w-2xl">
           <h2 className="mb-3 text-2xl font-bold">Ready to automate your GRC program?</h2>
           <p className="mb-6 text-muted-foreground">
-            These prompts work instantly in FastGRC. Sign up free and run your first prompt in
+            These prompts work instantly in FastGRC.ai. Sign up free and run your first prompt in
             under a minute.
           </p>
           <Link
@@ -262,7 +262,7 @@ function PromptCard({
         <Link
           href="/login"
           className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          title="Try in FastGRC"
+          title="Try in FastGRC.ai"
         >
           <ExternalLink className="h-3 w-3" /> Try
         </Link>

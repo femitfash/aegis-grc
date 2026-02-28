@@ -1502,7 +1502,7 @@ function SettingsPageInner() {
               <div className="p-6 rounded-lg border bg-card">
                 <h2 className="font-semibold mb-1">Theme</h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Choose how FastGRC looks to you.
+                  Choose how FastGRC.ai looks to you.
                 </p>
                 <div className="flex gap-3">
                   {([

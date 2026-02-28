@@ -64,7 +64,7 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
       id: "welcome",
       role: "assistant",
       content:
-        "**Meet your GRC Copilot**\n\nI'm your AI assistant inside FastGRC. Instead of clicking through menus or filling out forms, just type what you need in plain English — I'll do the work.\n\nTry clicking a suggestion below, or type your own request:",
+        "**Meet your GRC Copilot**\n\nI'm your AI assistant inside FastGRC.ai. Instead of clicking through menus or filling out forms, just type what you need in plain English — I'll do the work.\n\nTry clicking a suggestion below, or type your own request:",
       timestamp: new Date(),
     },
   ]);
@@ -474,7 +474,7 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
           </button>
         </form>
         <p className="text-xs text-muted-foreground mt-2 text-center">
-          FastGRC AI Copilot
+          FastGRC.ai Copilot
         </p>
       </div>
 
