@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { COPILOT_PROMPTS, PROMPT_CATEGORIES, type PromptCategory } from "@/features/copilot/data/prompts";
 
@@ -33,7 +34,22 @@ function generateId(): string {
 
 const CONVERSATION_ID = generateId();
 
+// Map action names → dashboard pages so we can navigate after execution
+const ACTION_PAGE_MAP: Record<string, string> = {
+  create_risk: "/dashboard/risks",
+  update_risk: "/dashboard/risks",
+  delete_risk: "/dashboard/risks",
+  import_github_alerts: "/dashboard/risks",
+  create_control: "/dashboard/controls",
+  create_framework: "/dashboard/frameworks",
+  create_requirement: "/dashboard/frameworks",
+  update_requirement_status: "/dashboard/frameworks",
+  create_evidence: "/dashboard/evidence",
+  link_risk_to_control: "/dashboard/risks",
+};
+
 export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -105,7 +121,7 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
         const limitMsg: Message = {
           id: generateId(),
           role: "assistant",
-          content: `🔒 **Free tier limit reached**\n\nYou've used all 10 free AI actions. You can:\n- **[Upgrade to Growth](/#pricing)** — unlimited AI, all frameworks, Slack/Jira/GitHub (14-day free trial)\n- **Add your own API key** → Settings → AI Copilot → paste your AI API key`,
+          content: `🔒 **Free tier limit reached**\n\nYou've used all 10 free AI actions. You can:\n- **Upgrade to Growth** — unlimited AI, all frameworks, Slack/Jira/GitHub (14-day free trial)\n- **Add your own API key** → Settings → AI Copilot → paste your AI API key\n\n[upgrade_button]`,
           timestamp: new Date(),
         };
         setMessages((prev) =>
@@ -170,13 +186,19 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
         action.name === "create_jira_issue" ? "Jira issue" :
         action.name === "send_slack_notification" ? "Slack notification" :
         action.name.replace(/_/g, " ");
+      const targetPage = ACTION_PAGE_MAP[action.name];
       const successMsg: Message = {
         id: generateId(),
         role: "assistant",
-        content: `✅ Done! The ${entityName} has been saved to your register. The list will update automatically.`,
+        content: `✅ Done! The ${entityName} has been saved to your register.${targetPage ? " Navigating you there now..." : " The list will update automatically."}`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, successMsg]);
+
+      // Navigate to the relevant page so the user can see what was added
+      if (targetPage && context?.page !== targetPage) {
+        setTimeout(() => router.push(targetPage), 600);
+      }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : "Unknown error";
       setMessages((prev) =>
@@ -498,6 +520,17 @@ function MarkdownText({
           </div>
         );
       }
+    } else if (line.trim() === "[upgrade_button]") {
+      elements.push(
+        <div key={i} className="mt-2">
+          <Link
+            href="/dashboard/settings?tab=billing"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors shadow-sm"
+          >
+            Upgrade to Growth →
+          </Link>
+        </div>
+      );
     } else if (line === "") {
       elements.push(<div key={i} className="h-1" />);
     } else {
