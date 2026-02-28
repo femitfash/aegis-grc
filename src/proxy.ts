@@ -17,14 +17,14 @@ export async function proxy(request: NextRequest) {
   // Redirect www → non-www so all traffic uses the canonical domain.
   // This prevents auth mismatches (Supabase only allows one redirect domain)
   // and cookie/session issues from split origins.
-  const host = request.headers.get("host") ?? "";
-  if (host.startsWith("www.")) {
-    const canonical = process.env.NEXT_PUBLIC_APP_URL;
-    if (canonical) {
-      const url = new URL(request.url);
-      url.host = host.replace(/^www\./, "");
-      url.protocol = "https";
-      return NextResponse.redirect(url, 301);
+  const canonical = process.env.NEXT_PUBLIC_APP_URL;
+  if (canonical && !canonical.includes("localhost")) {
+    const host = request.headers.get("host") ?? request.headers.get("x-forwarded-host") ?? "";
+    if (host.startsWith("www.")) {
+      // Build target from canonical + original path/search/hash to avoid loops
+      const incoming = new URL(request.url);
+      const target = `${canonical}${incoming.pathname}${incoming.search}`;
+      return NextResponse.redirect(target, 301);
     }
   }
 
