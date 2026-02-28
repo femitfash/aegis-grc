@@ -60,16 +60,24 @@ export default function Home() {
           </div>
 
           <h1 className="mb-6 font-display text-4xl font-bold md:text-7xl">
-            Compliance through{" "}
-            <span className="text-primary">conversation,</span>
-            <br />not forms
+            Just type what you need.{" "}
+            <span className="text-primary">The AI does the rest.</span>
           </h1>
 
-          <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground md:text-xl">
-            FastGRC is the first GRC platform where AI is the primary interface.
-            Log risks in plain English, track frameworks automatically, and get
-            audit-ready — in minutes, not months.
+          <p className="mx-auto mb-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
+            FastGRC replaces complex GRC dashboards and long forms with a single
+            AI chat. Describe risks in plain English, and the platform creates
+            records, maps controls to frameworks, and tracks evidence — automatically.
           </p>
+
+          <div className="mx-auto mb-10 max-w-2xl grid grid-cols-2 gap-x-8 gap-y-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2"><span className="text-red-400">&#10007;</span> <span className="line-through opacity-60">Complex dashboards</span></div>
+            <div className="flex items-center gap-2"><span className="text-green-500">&#10003;</span> One AI conversation</div>
+            <div className="flex items-center gap-2"><span className="text-red-400">&#10007;</span> <span className="line-through opacity-60">Manual form filling</span></div>
+            <div className="flex items-center gap-2"><span className="text-green-500">&#10003;</span> Plain English inputs</div>
+            <div className="flex items-center gap-2"><span className="text-red-400">&#10007;</span> <span className="line-through opacity-60">Months to audit-ready</span></div>
+            <div className="flex items-center gap-2"><span className="text-green-500">&#10003;</span> Audit-ready in minutes</div>
+          </div>
 
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link

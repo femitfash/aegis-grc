@@ -48,6 +48,15 @@ const ACTION_PAGE_MAP: Record<string, string> = {
   link_risk_to_control: "/dashboard/risks",
 };
 
+const SUGGESTION_CHIPS = [
+  { label: "Register a risk", prompt: "Register a risk about our S3 buckets being publicly accessible" },
+  { label: "SOC 2 readiness", prompt: "What's our current SOC 2 readiness?" },
+  { label: "Create a control", prompt: "Create a preventive control for encrypting data at rest using AES-256" },
+  { label: "Find controls", prompt: "Find controls for access management" },
+  { label: "Log evidence", prompt: "Record evidence that we completed our annual pen test with no critical findings" },
+  { label: "High risks", prompt: "Show all high severity risks" },
+];
+
 export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([
@@ -55,7 +64,7 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
       id: "welcome",
       role: "assistant",
       content:
-        "Hi! I'm your GRC Copilot. I can help you **register risks**, map controls, track evidence, and check your compliance posture — just describe what you need.\n\nTry asking:\n- \"Register a risk about our S3 buckets being public\"\n- \"What's our SOC 2 readiness?\"\n- \"Find controls for access management\"",
+        "**Meet your GRC Copilot**\n\nI'm your AI assistant inside FastGRC. Instead of clicking through menus or filling out forms, just type what you need in plain English — I'll do the work.\n\nTry clicking a suggestion below, or type your own request:",
       timestamp: new Date(),
     },
   ]);
@@ -421,6 +430,24 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
             ))}
           </div>
         ))}
+
+        {/* Suggestion chips — shown only when conversation hasn't started */}
+        {messages.length === 1 && messages[0].id === "welcome" && !isLoading && (
+          <div className="flex flex-wrap gap-2 px-1">
+            {SUGGESTION_CHIPS.map((chip) => (
+              <button
+                key={chip.label}
+                onClick={() => {
+                  setInput(chip.prompt);
+                  inputRef.current?.focus();
+                }}
+                className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 hover:border-primary/40 transition-colors"
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div ref={messagesEndRef} />
       </div>
