@@ -483,7 +483,7 @@ function SettingsPageInner() {
       let data: { url?: string; error?: string } = {};
       try { data = await res.json(); } catch { /* non-JSON response */ }
       if (data.url) {
-        window.location.href = data.url;
+        window.open(data.url, "_blank");
       } else {
         alert(data.error || `Checkout failed (HTTP ${res.status}). Please contact support@fastgrc.ai.`);
       }

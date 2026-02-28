@@ -25,7 +25,7 @@ export default function AuthLayout({
       {/* Footer */}
       <footer className="border-t py-4">
         <div className="container mx-auto px-6 text-center text-sm text-muted-foreground">
-          FastGRC.ai &mdash; Copilot-first Governance, Risk &amp;
+          <BrandLogo /> &mdash; Copilot-first Governance, Risk &amp;
           Compliance
         </div>
       </footer>

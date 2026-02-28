@@ -55,7 +55,7 @@ export default function Home() {
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,hsl(var(--primary)/0.15),transparent)]" />
         <div className="mx-auto max-w-4xl text-center">
           <p className="mb-4 text-lg font-semibold tracking-wide md:text-2xl">
-            Introducing <span className="text-red-500">FastGRC.ai</span> <span className="text-primary">- your AI Copilot for GRC</span>
+            Introducing <BrandLogo /> — your AI <span className="text-red-500">Copilot</span> for <span className="text-red-500">GRC</span>
           </p>
 
           <h1 className="mb-6 font-display text-4xl font-bold md:text-7xl">
@@ -100,7 +100,7 @@ export default function Home() {
               <span className="h-3 w-3 rounded-full bg-red-500/70" />
               <span className="h-3 w-3 rounded-full bg-yellow-500/70" />
               <span className="h-3 w-3 rounded-full bg-green-500/70" />
-              <span className="ml-3 text-xs text-muted-foreground">FastGRC.ai Copilot</span>
+              <span className="ml-3 text-xs text-muted-foreground"><BrandLogo /> Copilot</span>
             </div>
             <div className="space-y-4 p-6 text-left text-sm">
               <div className="flex gap-3">
@@ -273,7 +273,7 @@ export default function Home() {
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-8">
               <div className="mb-6 flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-primary" />
-                <span className="font-semibold text-primary">FastGRC.ai</span>
+                <BrandLogo className="font-semibold" />
               </div>
               <ul className="space-y-4 text-sm text-muted-foreground">
                 {[
@@ -463,7 +463,7 @@ export default function Home() {
         <div className="mx-auto max-w-5xl">
           <div className="mb-16 text-center">
             <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
-              How FastGRC.ai compares to Vanta, Drata & Thoropass
+              How <BrandLogo /> compares to Vanta, Drata & Thoropass
             </h2>
             <p className="text-muted-foreground">
               Other GRC platforms bolt AI on as a sidebar. We built AI as the foundation.
@@ -475,7 +475,7 @@ export default function Home() {
               <thead>
                 <tr className="border-b border-border bg-muted/50">
                   <th className="px-6 py-4 text-left font-medium text-muted-foreground">Feature</th>
-                  <th className="px-6 py-4 text-center font-semibold text-primary">FastGRC.ai</th>
+                  <th className="px-6 py-4 text-center font-semibold"><BrandLogo /></th>
                   <th className="px-6 py-4 text-center font-medium text-muted-foreground">Vanta</th>
                   <th className="px-6 py-4 text-center font-medium text-muted-foreground">Drata</th>
                   <th className="px-6 py-4 text-center font-medium text-muted-foreground">Thoropass</th>
@@ -659,7 +659,7 @@ export default function Home() {
 
           <div className="border-t border-border pt-8 text-center text-xs text-muted-foreground">
             <p>
-              © {new Date().getFullYear()} FastGRC.ai. Built for security teams that value their time.
+              © {new Date().getFullYear()} <BrandLogo />. Built for security teams that value their time.
             </p>
           </div>
         </div>

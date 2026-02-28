@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { COPILOT_PROMPTS, PROMPT_CATEGORIES, type PromptCategory } from "@/features/copilot/data/prompts";
+import { BrandLogo } from "@/shared/components/brand-logo";
 
 interface Message {
   id: string;
@@ -474,7 +475,7 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
           </button>
         </form>
         <p className="text-xs text-muted-foreground mt-2 text-center">
-          FastGRC.ai Copilot
+          <BrandLogo /> Copilot
         </p>
       </div>
 

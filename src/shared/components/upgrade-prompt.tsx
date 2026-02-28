@@ -52,7 +52,7 @@ export function UpgradePrompt({
       return;
     }
     const data = await res.json();
-    if (data.url) window.location.href = data.url;
+    if (data.url) window.open(data.url, "_blank");
     setLoading(false);
   }
 
