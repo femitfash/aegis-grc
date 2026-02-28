@@ -35,7 +35,25 @@ export async function GET(_request: NextRequest) {
 
     if (error) return Response.json({ agent_types: [], error: error.message }, { status: 500 });
 
-    return Response.json({ agent_types: data ?? [] });
+    // Auto-provision the default GRC Agent Type if none exist yet
+    let types = data ?? [];
+    if (types.length === 0) {
+      const { data: newType } = await admin
+        .from("agent_types")
+        .insert({
+          organization_id: userData.organization_id,
+          name: "GRC Agent",
+          description: "Default agent with web search, risk analysis, and compliance checking skills.",
+          skills: ["web_search", "risk_analysis", "compliance_check", "send_report", "create_risk", "update_requirement"],
+          is_default: true,
+          created_by: user.id,
+        })
+        .select()
+        .single();
+      if (newType) types = [newType];
+    }
+
+    return Response.json({ agent_types: types });
   } catch (err) {
     return Response.json({ agent_types: [], error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }

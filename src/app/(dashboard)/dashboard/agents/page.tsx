@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { SKILL_CATALOG, SCHEDULE_LABELS } from "@/shared/lib/agents/skills";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -58,11 +59,11 @@ function formatDate(iso: string | null) {
 
 function StatusBadge({ status }: { status: AgentTask["status"] }) {
   const styles: Record<AgentTask["status"], string> = {
-    pending_approval: "bg-amber-100 text-amber-800 border-amber-200",
-    approved: "bg-green-100 text-green-800 border-green-200",
-    declined: "bg-red-100 text-red-800 border-red-200",
-    completed: "bg-blue-100 text-blue-800 border-blue-200",
-    failed: "bg-red-100 text-red-800 border-red-200",
+    pending_approval: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800",
+    approved: "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800",
+    declined: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800",
+    completed: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
+    failed: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800",
   };
   const labels: Record<AgentTask["status"], string> = {
     pending_approval: "Pending Approval",
@@ -81,14 +82,14 @@ function StatusBadge({ status }: { status: AgentTask["status"] }) {
 function AgentStatusBadge({ status }: { status: Agent["status"] }) {
   if (status === "active") return <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 border border-green-200">Active</span>;
   if (status === "suspended") return <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 border border-amber-200">Suspended</span>;
-  return <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500 border">Deleted</span>;
+  return <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-muted text-muted-foreground border border-border">Deleted</span>;
 }
 
 function SkillChip({ skillId }: { skillId: string }) {
   const skill = SKILL_CATALOG.find((s) => s.id === skillId);
   const isWrite = skill?.requiresApproval;
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 text-xs rounded-full border mr-1 mb-1 ${isWrite ? "bg-orange-50 text-orange-700 border-orange-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 text-xs rounded-full border mr-1 mb-1 ${isWrite ? "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800" : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800"}`}>
       {skill?.name ?? skillId}
     </span>
   );
@@ -132,17 +133,17 @@ function NewAgentTypeModal({ onClose, onCreated }: { onClose: () => void; onCrea
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-5 border-b">
           <h2 className="text-lg font-semibold">New Agent Type</h2>
           <p className="text-sm text-muted-foreground mt-1">Define a reusable agent blueprint with a specific set of skills.</p>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
+          {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 rounded-lg px-3 py-2">{error}</p>}
           <div>
             <label className="block text-sm font-medium mb-1">Name *</label>
             <input
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
               placeholder="e.g. Compliance Monitor"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -152,7 +153,7 @@ function NewAgentTypeModal({ onClose, onCreated }: { onClose: () => void; onCrea
           <div>
             <label className="block text-sm font-medium mb-1">Description</label>
             <textarea
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
               rows={2}
               placeholder="What does this agent type do?"
               value={description}
@@ -163,7 +164,7 @@ function NewAgentTypeModal({ onClose, onCreated }: { onClose: () => void; onCrea
             <label className="block text-sm font-medium mb-2">Skills *</label>
             <div className="grid grid-cols-2 gap-2">
               {SKILL_CATALOG.map((skill) => (
-                <label key={skill.id} className={`flex items-start gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${selectedSkills.includes(skill.id) ? "bg-primary/5 border-primary" : "hover:bg-gray-50"}`}>
+                <label key={skill.id} className={`flex items-start gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${selectedSkills.includes(skill.id) ? "bg-primary/5 border-primary" : "hover:bg-muted"}`}>
                   <input
                     type="checkbox"
                     checked={selectedSkills.includes(skill.id)}
@@ -180,7 +181,7 @@ function NewAgentTypeModal({ onClose, onCreated }: { onClose: () => void; onCrea
             </div>
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2 text-sm font-medium hover:bg-gray-50">Cancel</button>
+            <button type="button" onClick={onClose} className="flex-1 border border-border text-foreground rounded-lg py-2 text-sm font-medium hover:bg-muted">Cancel</button>
             <button type="submit" disabled={saving} className="flex-1 bg-primary text-primary-foreground rounded-lg py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50">
               {saving ? "Creating…" : "Create Type"}
             </button>
@@ -229,37 +230,37 @@ function NewAgentModal({ agentTypes, onClose, onCreated }: { agentTypes: AgentTy
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-5 border-b">
           <h2 className="text-lg font-semibold">New Agent</h2>
           <p className="text-sm text-muted-foreground mt-1">Create a scheduled agent instance from a type.</p>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
+          {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 rounded-lg px-3 py-2">{error}</p>}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Agent Name *</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Agent Name *</label>
             <input
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
               placeholder="e.g. NIST Policy Watcher"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               autoFocus
             />
-            <p className="text-xs text-gray-400 mt-1">A friendly name to identify this agent</p>
+            <p className="text-xs text-muted-foreground mt-1">A friendly name to identify this agent</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">What should this agent do?</label>
+            <label className="block text-sm font-medium text-foreground mb-1">What should this agent do?</label>
             <input
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
               placeholder="e.g. Monitor NIST for policy updates and flag compliance gaps"
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Agent Type *</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Agent Type *</label>
             <select
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
               value={form.agent_type_id}
               onChange={(e) => setForm((f) => ({ ...f, agent_type_id: e.target.value }))}
             >
@@ -273,12 +274,12 @@ function NewAgentModal({ agentTypes, onClose, onCreated }: { agentTypes: AgentTy
                 {selectedType.skills.map((s) => <SkillChip key={s} skillId={s} />)}
               </div>
             )}
-            {!selectedType && <p className="text-xs text-gray-400 mt-1">The type determines which skills this agent can use</p>}
+            {!selectedType && <p className="text-xs text-muted-foreground mt-1">The type determines which skills this agent can use</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">How often should it run?</label>
+            <label className="block text-sm font-medium text-foreground mb-1">How often should it run?</label>
             <select
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
               value={form.schedule}
               onChange={(e) => setForm((f) => ({ ...f, schedule: e.target.value }))}
             >
@@ -288,18 +289,18 @@ function NewAgentModal({ agentTypes, onClose, onCreated }: { agentTypes: AgentTy
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Custom Config (optional)</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Custom Config (optional)</label>
             <textarea
-              className="w-full border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-background font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
               rows={3}
               placeholder={`{\n  "search_query": "latest NIST CSF updates 2026"\n}`}
               value={form.config}
               onChange={(e) => setForm((f) => ({ ...f, config: e.target.value }))}
             />
-            <p className="text-xs text-gray-400 mt-1">JSON key-value pairs passed to the agent at runtime</p>
+            <p className="text-xs text-muted-foreground mt-1">JSON key-value pairs passed to the agent at runtime</p>
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2 text-sm font-medium hover:bg-gray-50">Cancel</button>
+            <button type="button" onClick={onClose} className="flex-1 border border-border text-foreground rounded-lg py-2 text-sm font-medium hover:bg-muted">Cancel</button>
             <button type="submit" disabled={saving} className="flex-1 bg-primary text-primary-foreground rounded-lg py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50">
               {saving ? "Creating…" : "Create Agent"}
             </button>
@@ -315,6 +316,7 @@ function NewAgentModal({ agentTypes, onClose, onCreated }: { agentTypes: AgentTy
 export default function AgentsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("agents");
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [planEligible, setPlanEligible] = useState<boolean | null>(null);
 
   // Data
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -355,11 +357,24 @@ export default function AgentsPage() {
 
   const fetchRole = useCallback(async () => {
     try {
-      const res = await fetch("/api/settings/organization");
-      const data = await res.json() as { user_role?: string };
-      if (data.user_role) setUserRole(data.user_role);
+      const [orgRes, subRes] = await Promise.all([
+        fetch("/api/settings/organization"),
+        fetch("/api/billing/subscription"),
+      ]);
+      const orgData = await orgRes.json() as { user_role?: string };
+      if (orgData.user_role) setUserRole(orgData.user_role);
       else setUserRole("viewer");
-    } catch { setUserRole("viewer"); }
+
+      const subData = await subRes.json() as { subscription?: { plan?: string; status?: string; current_period_end?: string } };
+      const sub = subData.subscription;
+      const isPaid = sub?.plan && sub.plan !== "builder";
+      const isActive = sub?.status === "active" || sub?.status === "trialing";
+      const notExpired = sub?.current_period_end ? new Date(sub.current_period_end) > new Date() : false;
+      setPlanEligible((isPaid && isActive) || (isPaid && notExpired) || false);
+    } catch {
+      setUserRole("viewer");
+      setPlanEligible(false);
+    }
   }, []);
 
   const fetchAgents = useCallback(async () => {
@@ -506,12 +521,45 @@ export default function AgentsPage() {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
+  // Plan eligibility gate — show upgrade prompt for free-tier users
+  if (planEligible === false) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <h1 className="text-2xl font-bold text-foreground mb-2">Agents</h1>
+        <p className="text-sm text-muted-foreground mb-8">Autonomous GRC agents that run on schedules and require approval for write actions.</p>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="text-5xl mb-4">🤖</div>
+          <h2 className="text-xl font-semibold mb-2">Agents require the Growth plan</h2>
+          <p className="text-muted-foreground max-w-md mb-6">
+            Autonomous GRC agents that monitor compliance, analyze risks, and surface gaps on a schedule are available on the Growth plan.
+          </p>
+          <Link
+            href="/dashboard/settings?tab=billing"
+            className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+          >
+            Upgrade to Growth →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Still loading plan status
+  if (planEligible === null) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <h1 className="text-2xl font-bold text-foreground mb-2">Agents</h1>
+        <p className="text-sm text-muted-foreground py-12 text-center">Loading…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Agents</h1>
+          <h1 className="text-2xl font-bold text-foreground">Agents</h1>
           <p className="text-sm text-muted-foreground mt-1">Autonomous GRC agents that run on schedules and require approval for write actions.</p>
         </div>
         {isAdminOrOwner && (
@@ -531,12 +579,12 @@ export default function AgentsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
+      <div className="flex gap-1 mb-6 bg-muted p-1 rounded-lg w-fit">
         {(["agents", "types", "tasks"] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors capitalize ${activeTab === tab ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors capitalize ${activeTab === tab ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
           >
             {tab === "tasks" ? (
               <span className="flex items-center gap-1.5">
@@ -570,50 +618,50 @@ export default function AgentsPage() {
             </div>
           )}
           {!loadingAgents && agents.length > 0 && (
-            <div className="bg-white border rounded-xl overflow-hidden">
+            <div className="bg-card border rounded-xl overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
+                <thead className="bg-muted/50 border-b">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Agent</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Type</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Schedule</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Status</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Last Run</th>
-                    {isAdminOrOwner && <th className="px-4 py-3 text-right font-medium text-gray-500">Actions</th>}
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Agent</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Schedule</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Last Run</th>
+                    {isAdminOrOwner && <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {agents.map((agent) => (
-                    <tr key={agent.id} className="hover:bg-gray-50/50">
+                    <tr key={agent.id} className="hover:bg-muted/50">
                       <td className="px-4 py-3">
-                        <div className="font-medium text-gray-900">{agent.name}</div>
+                        <div className="font-medium text-foreground">{agent.name}</div>
                         {agent.description && <div className="text-xs text-muted-foreground mt-0.5">{agent.description}</div>}
                         {actionErrors[agent.id] && <div className="text-xs text-red-600 mt-1">{actionErrors[agent.id]}</div>}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-gray-700">{agent.agent_type?.name ?? "—"}</div>
+                        <div className="text-foreground">{agent.agent_type?.name ?? "—"}</div>
                         <div className="flex flex-wrap mt-1">
                           {(agent.agent_type?.skills ?? []).slice(0, 3).map((s) => <SkillChip key={s} skillId={s} />)}
                           {(agent.agent_type?.skills ?? []).length > 3 && <span className="text-xs text-muted-foreground">+{(agent.agent_type?.skills ?? []).length - 3}</span>}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{SCHEDULE_LABELS[agent.schedule] ?? agent.schedule}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{SCHEDULE_LABELS[agent.schedule] ?? agent.schedule}</td>
                       <td className="px-4 py-3"><AgentStatusBadge status={agent.status} /></td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(agent.last_run_at)}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">{formatDate(agent.last_run_at)}</td>
                       {isAdminOrOwner && (
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => handleRunAgent(agent)}
                               disabled={runningAgentId === agent.id || agent.status !== "active"}
-                              className="px-2.5 py-1 text-xs border rounded-md hover:bg-gray-50 disabled:opacity-40"
+                              className="px-2.5 py-1 text-xs border rounded-md hover:bg-muted disabled:opacity-40"
                             >
                               {runningAgentId === agent.id ? "Running…" : "▶ Run"}
                             </button>
                             <button
                               onClick={() => handleToggleStatus(agent)}
                               disabled={togglingAgentId === agent.id}
-                              className="px-2.5 py-1 text-xs border rounded-md hover:bg-gray-50 disabled:opacity-40"
+                              className="px-2.5 py-1 text-xs border rounded-md hover:bg-muted disabled:opacity-40"
                             >
                               {togglingAgentId === agent.id ? "…" : agent.status === "active" ? "Suspend" : "Activate"}
                             </button>
@@ -649,23 +697,23 @@ export default function AgentsPage() {
             </div>
           )}
           {!loadingTypes && agentTypes.length > 0 && (
-            <div className="bg-white border rounded-xl overflow-hidden">
+            <div className="bg-card border rounded-xl overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
+                <thead className="bg-muted/50 border-b">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Type</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Skills</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Status</th>
-                    {isAdminOrOwner && <th className="px-4 py-3 text-right font-medium text-gray-500">Actions</th>}
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Skills</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                    {isAdminOrOwner && <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {agentTypes.map((type) => (
-                    <tr key={type.id} className="hover:bg-gray-50/50">
+                    <tr key={type.id} className="hover:bg-muted/50">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">{type.name}</span>
-                          {type.is_default && <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full border border-blue-200">Default</span>}
+                          <span className="font-medium text-foreground">{type.name}</span>
+                          {type.is_default && <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">Default</span>}
                         </div>
                         {type.description && <div className="text-xs text-muted-foreground mt-0.5">{type.description}</div>}
                         {actionErrors[type.id] && <div className="text-xs text-red-600 mt-1">{actionErrors[type.id]}</div>}
@@ -676,7 +724,7 @@ export default function AgentsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex px-2 py-0.5 text-xs rounded-full border ${type.is_active ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-500 border-gray-200"}`}>
+                        <span className={`inline-flex px-2 py-0.5 text-xs rounded-full border ${type.is_active ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800" : "bg-muted text-muted-foreground border-border"}`}>
                           {type.is_active ? "Active" : "Inactive"}
                         </span>
                       </td>
@@ -711,7 +759,7 @@ export default function AgentsPage() {
             <select
               value={taskStatusFilter}
               onChange={(e) => setTaskStatusFilter(e.target.value)}
-              className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none"
+              className="border rounded-lg px-3 py-1.5 text-sm bg-background focus:outline-none"
             >
               <option value="all">All statuses</option>
               <option value="pending_approval">Pending Approval</option>
@@ -723,12 +771,12 @@ export default function AgentsPage() {
             <select
               value={taskAgentFilter}
               onChange={(e) => setTaskAgentFilter(e.target.value)}
-              className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none"
+              className="border rounded-lg px-3 py-1.5 text-sm bg-background focus:outline-none"
             >
               <option value="all">All agents</option>
               {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
-            <button onClick={fetchTasks} className="ml-auto border rounded-lg px-3 py-1.5 text-sm hover:bg-gray-50">
+            <button onClick={fetchTasks} className="ml-auto border rounded-lg px-3 py-1.5 text-sm hover:bg-muted">
               Refresh
             </button>
           </div>
@@ -743,17 +791,17 @@ export default function AgentsPage() {
             </div>
           )}
           {!loadingTasks && filteredTasks.length > 0 && (
-            <div className="bg-white border rounded-xl overflow-hidden">
+            <div className="bg-card border rounded-xl overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
+                <thead className="bg-muted/50 border-b">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Task</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Agent</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Skill</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Type</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Status</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Created</th>
-                    {isAdminOrOwner && <th className="px-4 py-3 text-right font-medium text-gray-500">Actions</th>}
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Task</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Agent</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Skill</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Created</th>
+                    {isAdminOrOwner && <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -761,23 +809,23 @@ export default function AgentsPage() {
                     <>
                       <tr
                         key={task.id}
-                        className={`hover:bg-gray-50/50 cursor-pointer ${expandedTaskId === task.id ? "bg-primary/5" : ""}`}
+                        className={`hover:bg-muted/50 cursor-pointer ${expandedTaskId === task.id ? "bg-primary/5" : ""}`}
                         onClick={() => setExpandedTaskId((prev) => prev === task.id ? null : task.id)}
                       >
                         <td className="px-4 py-3">
-                          <div className="font-medium text-gray-900">{task.title}</div>
+                          <div className="font-medium text-foreground">{task.title}</div>
                           <div className="text-xs text-muted-foreground font-mono">{task.task_id}</div>
                           {actionErrors[task.id] && <div className="text-xs text-red-600 mt-1">{actionErrors[task.id]}</div>}
                         </td>
-                        <td className="px-4 py-3 text-gray-600">{task.agent?.name ?? "—"}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{task.agent?.name ?? "—"}</td>
                         <td className="px-4 py-3"><SkillChip skillId={task.skill_used} /></td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex px-2 py-0.5 text-xs rounded-full border ${task.action_type === "write" ? "bg-orange-50 text-orange-700 border-orange-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>
+                          <span className={`inline-flex px-2 py-0.5 text-xs rounded-full border ${task.action_type === "write" ? "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800" : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800"}`}>
                             {task.action_type}
                           </span>
                         </td>
                         <td className="px-4 py-3"><StatusBadge status={task.status} /></td>
-                        <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(task.created_at)}</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">{formatDate(task.created_at)}</td>
                         {isAdminOrOwner && (
                           <td className="px-4 py-3">
                             {task.status === "pending_approval" && (
@@ -803,18 +851,18 @@ export default function AgentsPage() {
                       </tr>
                       {expandedTaskId === task.id && (
                         <tr key={`${task.id}-detail`}>
-                          <td colSpan={isAdminOrOwner ? 7 : 6} className="px-4 py-4 bg-gray-50 border-b">
+                          <td colSpan={isAdminOrOwner ? 7 : 6} className="px-4 py-4 bg-muted/50 border-b">
                             <div className="space-y-3">
                               {task.description && (
                                 <div>
-                                  <div className="text-xs font-medium text-gray-500 mb-1">Description</div>
-                                  <p className="text-sm text-gray-700">{task.description}</p>
+                                  <div className="text-xs font-medium text-muted-foreground mb-1">Description</div>
+                                  <p className="text-sm text-foreground">{task.description}</p>
                                 </div>
                               )}
                               {task.result && (
                                 <div>
-                                  <div className="text-xs font-medium text-gray-500 mb-1">{task.action_type === "write" ? "Proposed Action" : "Result"}</div>
-                                  <pre className="text-xs font-mono bg-white border rounded-lg p-3 overflow-auto max-h-48 text-gray-700">
+                                  <div className="text-xs font-medium text-muted-foreground mb-1">{task.action_type === "write" ? "Proposed Action" : "Result"}</div>
+                                  <pre className="text-xs font-mono bg-card border rounded-lg p-3 overflow-auto max-h-48 text-foreground">
                                     {JSON.stringify(task.result, null, 2)}
                                   </pre>
                                 </div>
