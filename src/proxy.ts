@@ -14,20 +14,6 @@ const PROTECTED_ROUTES = ["/dashboard", "/auditor"];
 const AUTH_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password"];
 
 export async function proxy(request: NextRequest) {
-  // Redirect www → non-www so all traffic uses the canonical domain.
-  // This prevents auth mismatches (Supabase only allows one redirect domain)
-  // and cookie/session issues from split origins.
-  const canonical = process.env.NEXT_PUBLIC_APP_URL;
-  if (canonical && !canonical.includes("localhost")) {
-    const host = request.headers.get("host") ?? request.headers.get("x-forwarded-host") ?? "";
-    if (host.startsWith("www.")) {
-      // Build target from canonical + original path/search/hash to avoid loops
-      const incoming = new URL(request.url);
-      const target = `${canonical}${incoming.pathname}${incoming.search}`;
-      return NextResponse.redirect(target, 301);
-    }
-  }
-
   const { user, supabaseResponse } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
