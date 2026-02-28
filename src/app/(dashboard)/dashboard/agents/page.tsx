@@ -180,7 +180,7 @@ function NewAgentTypeModal({ onClose, onCreated }: { onClose: () => void; onCrea
             </div>
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 border rounded-lg py-2 text-sm font-medium hover:bg-gray-50">Cancel</button>
+            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2 text-sm font-medium hover:bg-gray-50">Cancel</button>
             <button type="submit" disabled={saving} className="flex-1 bg-primary text-primary-foreground rounded-lg py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50">
               {saving ? "Creating…" : "Create Type"}
             </button>
@@ -237,7 +237,7 @@ function NewAgentModal({ agentTypes, onClose, onCreated }: { agentTypes: AgentTy
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
           <div>
-            <label className="block text-sm font-medium mb-1">Name *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Agent Name *</label>
             <input
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               placeholder="e.g. NIST Policy Watcher"
@@ -245,36 +245,38 @@ function NewAgentModal({ agentTypes, onClose, onCreated }: { agentTypes: AgentTy
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               autoFocus
             />
+            <p className="text-xs text-gray-400 mt-1">A friendly name to identify this agent</p>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Description</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">What should this agent do?</label>
             <input
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-              placeholder="What should this agent do?"
+              placeholder="e.g. Monitor NIST for policy updates and flag compliance gaps"
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Agent Type *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Agent Type *</label>
             <select
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               value={form.agent_type_id}
               onChange={(e) => setForm((f) => ({ ...f, agent_type_id: e.target.value }))}
             >
-              <option value="">Select a type…</option>
+              <option value="">Choose a type to define the agent&apos;s skills…</option>
               {agentTypes.filter((t) => t.is_active).map((t) => (
                 <option key={t.id} value={t.id}>{t.name}{t.is_default ? " (Default)" : ""}</option>
               ))}
             </select>
             {selectedType && (
-              <div className="mt-1 flex flex-wrap">
+              <div className="mt-2 flex flex-wrap">
                 {selectedType.skills.map((s) => <SkillChip key={s} skillId={s} />)}
               </div>
             )}
+            {!selectedType && <p className="text-xs text-gray-400 mt-1">The type determines which skills this agent can use</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Schedule</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">How often should it run?</label>
             <select
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               value={form.schedule}
@@ -286,7 +288,7 @@ function NewAgentModal({ agentTypes, onClose, onCreated }: { agentTypes: AgentTy
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Config (JSON, optional)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Custom Config (optional)</label>
             <textarea
               className="w-full border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
               rows={3}
@@ -294,9 +296,10 @@ function NewAgentModal({ agentTypes, onClose, onCreated }: { agentTypes: AgentTy
               value={form.config}
               onChange={(e) => setForm((f) => ({ ...f, config: e.target.value }))}
             />
+            <p className="text-xs text-gray-400 mt-1">JSON key-value pairs passed to the agent at runtime</p>
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 border rounded-lg py-2 text-sm font-medium hover:bg-gray-50">Cancel</button>
+            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2 text-sm font-medium hover:bg-gray-50">Cancel</button>
             <button type="submit" disabled={saving} className="flex-1 bg-primary text-primary-foreground rounded-lg py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50">
               {saving ? "Creating…" : "Create Agent"}
             </button>
