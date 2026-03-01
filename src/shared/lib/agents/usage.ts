@@ -13,18 +13,19 @@ export interface AgentUsageInfo {
   freeActionsRemaining: number;
   creditsRemaining: number;
   hasUnlimitedPlan: boolean;
-  hasGrowthAccess: boolean;
 }
 
 /**
  * Check whether the organization is allowed to run an agent action.
  *
  * Priority:
- *  1. Growth subscription active → unlimited
- *  2. Agent unlimited add-on active → unlimited
- *  3. Within 7-day trial AND < 10 runs → allowed
- *  4. Purchased credits remaining → allowed
- *  5. Otherwise → blocked
+ *  1. Agent unlimited add-on active → unlimited
+ *  2. Within 7-day trial AND < 10 runs → allowed
+ *  3. Purchased credits remaining → allowed
+ *  4. Otherwise → blocked
+ *
+ * Note: Growth subscription gives unlimited *Copilot*, NOT unlimited Agents.
+ * Agent actions are a separate add-on for all plans.
  */
 export async function checkAgentUsage(organizationId: string): Promise<AgentUsageInfo> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,11 +43,6 @@ export async function checkAgentUsage(organizationId: string): Promise<AgentUsag
   const runCount: number = settings.agent_run_count ?? 0;
   const trialStartedAt: string | null = settings.agent_trial_started_at ?? null;
   const creditsPurchased: number = settings.agent_credits_purchased ?? 0;
-
-  // Growth subscription check (current_period_end is the source of truth)
-  const hasGrowthAccess = sub?.current_period_end
-    ? new Date(sub.current_period_end) > new Date()
-    : false;
 
   // Agent unlimited add-on
   const hasUnlimitedPlan = sub?.agent_plan === "unlimited";
@@ -72,20 +68,6 @@ export async function checkAgentUsage(organizationId: string): Promise<AgentUsag
   const creditsRemaining = Math.max(0, creditsPurchased - creditsUsed);
 
   // Access check (priority order)
-  if (hasGrowthAccess) {
-    return {
-      allowed: true,
-      runCount,
-      trialStartedAt,
-      trialExpired,
-      trialDaysRemaining,
-      freeActionsRemaining,
-      creditsRemaining,
-      hasUnlimitedPlan,
-      hasGrowthAccess,
-    };
-  }
-
   if (hasUnlimitedPlan) {
     return {
       allowed: true,
@@ -96,7 +78,6 @@ export async function checkAgentUsage(organizationId: string): Promise<AgentUsag
       freeActionsRemaining,
       creditsRemaining,
       hasUnlimitedPlan,
-      hasGrowthAccess,
     };
   }
 
@@ -111,7 +92,6 @@ export async function checkAgentUsage(organizationId: string): Promise<AgentUsag
       freeActionsRemaining,
       creditsRemaining,
       hasUnlimitedPlan,
-      hasGrowthAccess,
     };
   }
 
@@ -126,7 +106,6 @@ export async function checkAgentUsage(organizationId: string): Promise<AgentUsag
       freeActionsRemaining,
       creditsRemaining,
       hasUnlimitedPlan,
-      hasGrowthAccess,
     };
   }
 
@@ -145,7 +124,6 @@ export async function checkAgentUsage(organizationId: string): Promise<AgentUsag
     freeActionsRemaining,
     creditsRemaining,
     hasUnlimitedPlan,
-    hasGrowthAccess,
   };
 }
 

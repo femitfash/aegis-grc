@@ -27,7 +27,6 @@ export async function GET(_request: NextRequest) {
         freeActionsRemaining: AGENT_FREE_LIMIT,
         creditsRemaining: 0,
         hasUnlimitedPlan: false,
-        hasGrowthAccess: false,
       });
     }
 

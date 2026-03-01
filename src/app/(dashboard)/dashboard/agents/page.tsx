@@ -326,7 +326,6 @@ export default function AgentsPage() {
     freeActionsRemaining: number;
     creditsRemaining: number;
     hasUnlimitedPlan: boolean;
-    hasGrowthAccess: boolean;
   } | null>(null);
   const [usageLoaded, setUsageLoaded] = useState(false);
 
@@ -381,7 +380,7 @@ export default function AgentsPage() {
       setAgentUsage(usage);
     } catch {
       setUserRole("viewer");
-      setAgentUsage({ allowed: false, runCount: 0, trialStartedAt: null, trialExpired: false, trialDaysRemaining: 0, freeActionsRemaining: 0, creditsRemaining: 0, hasUnlimitedPlan: false, hasGrowthAccess: false });
+      setAgentUsage({ allowed: false, runCount: 0, trialStartedAt: null, trialExpired: false, trialDaysRemaining: 0, freeActionsRemaining: 0, creditsRemaining: 0, hasUnlimitedPlan: false });
     } finally {
       setUsageLoaded(true);
     }
@@ -574,7 +573,7 @@ export default function AgentsPage() {
       </div>
 
       {/* Agent usage banner */}
-      {agentUsage && !agentUsage.hasGrowthAccess && (
+      {agentUsage && (
         <div className={`mb-6 rounded-lg border p-4 ${
           !agentUsage.allowed
             ? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"

@@ -212,7 +212,7 @@ export function PricingSection() {
             <ul className="mb-6 space-y-2.5 text-sm text-muted-foreground">
               {[
                 "Unlimited AI copilot sessions",
-                "Unlimited Agent actions (fair use)",
+                "10 Agent actions (7-day trial)",
                 "All compliance frameworks",
                 "Multi-framework gap analysis",
                 "Slack, Jira & GitHub integration",
@@ -335,7 +335,7 @@ export function PricingSection() {
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-4">
-            Growth plan subscribers get unlimited agent actions included at no extra cost.
+            All plans include 10 free agent actions with a 7-day trial. Agent actions are a separate add-on from your plan subscription.
           </p>
         </div>
 
@@ -381,7 +381,7 @@ export function PricingSection() {
               },
               {
                 q: "What are Agent Actions and how do they differ from Copilot?",
-                a: "Copilot is a conversational AI assistant you interact with directly — it helps you create risks, controls, and more through chat. Agent Actions are autonomous background agents that run on a schedule (e.g. daily compliance scans, risk assessments) without manual interaction. Every plan gets 10 free agent actions during a 7-day trial. After that, you can purchase packs of 10 for $10, subscribe to unlimited for $99.99/mo, or upgrade to Growth which includes unlimited agent actions.",
+                a: "Copilot is a conversational AI assistant you interact with directly — it helps you create risks, controls, and more through chat. Agent Actions are autonomous background agents that run on a schedule (e.g. daily compliance scans, risk assessments) without manual interaction. Every plan gets 10 free agent actions during a 7-day trial. After that, you can purchase packs of 10 for $10 or subscribe to unlimited for $99.99/mo.",
               },
             ].map(({ q, a }) => (
               <details key={q} className="group px-6 py-4">

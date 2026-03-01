@@ -197,7 +197,7 @@ function SettingsPageInner() {
   const [agentUsage, setAgentUsage] = useState<{
     allowed: boolean; runCount: number; trialStartedAt: string | null; trialExpired: boolean;
     trialDaysRemaining: number; freeActionsRemaining: number; creditsRemaining: number;
-    hasUnlimitedPlan: boolean; hasGrowthAccess: boolean;
+    hasUnlimitedPlan: boolean;
   } | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [apiKeySaved, setApiKeySaved] = useState(false);
@@ -1513,7 +1513,7 @@ function SettingsPageInner() {
                   <>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium">
-                        {agentUsage.hasGrowthAccess || agentUsage.hasUnlimitedPlan ? (
+                        {agentUsage.hasUnlimitedPlan ? (
                           <span className="text-green-600">Unlimited agent actions</span>
                         ) : (
                           <span>
@@ -1522,7 +1522,7 @@ function SettingsPageInner() {
                           </span>
                         )}
                       </span>
-                      {!agentUsage.hasGrowthAccess && !agentUsage.hasUnlimitedPlan && (
+                      {!agentUsage.hasUnlimitedPlan && (
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                           !agentUsage.allowed ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
                           agentUsage.freeActionsRemaining <= 3 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" :
@@ -1534,7 +1534,7 @@ function SettingsPageInner() {
                         </span>
                       )}
                     </div>
-                    {!agentUsage.hasGrowthAccess && !agentUsage.hasUnlimitedPlan && (
+                    {!agentUsage.hasUnlimitedPlan && (
                       <>
                         {!agentUsage.trialExpired && (
                           <div className="w-full bg-muted rounded-full h-2 mb-3">
