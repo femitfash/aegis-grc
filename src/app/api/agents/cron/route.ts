@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createAdminClient } from "@/shared/lib/supabase/admin";
 import { runAgent } from "@/shared/lib/agents/executor";
+import { checkAgentUsage, incrementAgentRunCount } from "@/shared/lib/agents/usage";
 
 export async function POST(request: NextRequest) {
   // Verify cron secret to prevent unauthorized execution
@@ -39,10 +40,18 @@ export async function POST(request: NextRequest) {
 
     for (const agent of agents as Array<{ id: string; organization_id: string; name: string }>) {
       try {
+        // Check agent action usage before running
+        const usage = await checkAgentUsage(agent.organization_id);
+        if (!usage.allowed) {
+          errors.push(`${agent.name}: agent action limit reached`);
+          continue;
+        }
+
         const result = await runAgent(agent.id, agent.organization_id);
         if (result.error) {
           errors.push(`${agent.name}: ${result.error}`);
         } else {
+          await incrementAgentRunCount(agent.organization_id);
           triggered++;
         }
       } catch (err) {

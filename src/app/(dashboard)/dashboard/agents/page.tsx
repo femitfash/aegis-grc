@@ -316,7 +316,19 @@ function NewAgentModal({ agentTypes, onClose, onCreated }: { agentTypes: AgentTy
 export default function AgentsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("agents");
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [planEligible, setPlanEligible] = useState<boolean | null>(null);
+  const [agentUsage, setAgentUsage] = useState<{
+    allowed: boolean;
+    reason?: string;
+    runCount: number;
+    trialStartedAt: string | null;
+    trialExpired: boolean;
+    trialDaysRemaining: number;
+    freeActionsRemaining: number;
+    creditsRemaining: number;
+    hasUnlimitedPlan: boolean;
+    hasGrowthAccess: boolean;
+  } | null>(null);
+  const [usageLoaded, setUsageLoaded] = useState(false);
 
   // Data
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -357,21 +369,21 @@ export default function AgentsPage() {
 
   const fetchRole = useCallback(async () => {
     try {
-      const [orgRes, subRes] = await Promise.all([
+      const [orgRes, usageRes] = await Promise.all([
         fetch("/api/settings/organization"),
-        fetch("/api/billing/subscription"),
+        fetch("/api/settings/agent-usage"),
       ]);
       const orgData = await orgRes.json() as { user_role?: string };
       if (orgData.user_role) setUserRole(orgData.user_role);
       else setUserRole("viewer");
 
-      const subData = await subRes.json() as { subscription?: { plan?: string; status?: string; current_period_end?: string } };
-      const sub = subData.subscription;
-      const notExpired = sub?.current_period_end ? new Date(sub.current_period_end) > new Date() : false;
-      setPlanEligible(notExpired);
+      const usage = await usageRes.json();
+      setAgentUsage(usage);
     } catch {
       setUserRole("viewer");
-      setPlanEligible(false);
+      setAgentUsage({ allowed: false, runCount: 0, trialStartedAt: null, trialExpired: false, trialDaysRemaining: 0, freeActionsRemaining: 0, creditsRemaining: 0, hasUnlimitedPlan: false, hasGrowthAccess: false });
+    } finally {
+      setUsageLoaded(true);
     }
   }, []);
 
@@ -419,8 +431,16 @@ export default function AgentsPage() {
     setActionErrors((e) => ({ ...e, [agent.id]: "" }));
     try {
       const res = await fetch(`/api/agents/${agent.id}/run`, { method: "POST" });
-      const data = await res.json() as { success?: boolean; tasks_created?: number; error?: string };
+      const data = await res.json() as { success?: boolean; tasks_created?: number; error?: string; usage?: typeof agentUsage };
+      if (res.status === 402) {
+        // Usage limit reached — refresh usage and show error
+        if (data.usage) setAgentUsage(data.usage);
+        else fetchRole();
+        throw new Error("Agent action limit reached. Purchase more actions or upgrade your plan.");
+      }
       if (!res.ok) throw new Error(data.error ?? "Failed to run");
+      // Refresh usage after successful run
+      fetchRole();
       await fetchAgents();
       // Switch to tasks tab to show results
       setActiveTab("tasks");
@@ -519,31 +539,8 @@ export default function AgentsPage() {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
-  // Plan eligibility gate — show upgrade prompt for free-tier users
-  if (planEligible === false) {
-    return (
-      <div className="p-6 max-w-6xl mx-auto">
-        <h1 className="text-2xl font-bold text-foreground mb-2">Agents</h1>
-        <p className="text-sm text-muted-foreground mb-8">Autonomous GRC agents that run on schedules and require approval for write actions.</p>
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="text-5xl mb-4">🤖</div>
-          <h2 className="text-xl font-semibold mb-2">Agents require the Growth plan</h2>
-          <p className="text-muted-foreground max-w-md mb-6">
-            Autonomous GRC agents that monitor compliance, analyze risks, and surface gaps on a schedule are available on the Growth plan.
-          </p>
-          <Link
-            href="/dashboard/settings?tab=billing"
-            className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
-          >
-            Upgrade to Growth →
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  // Still loading plan status
-  if (planEligible === null) {
+  // Still loading usage status
+  if (!usageLoaded) {
     return (
       <div className="p-6 max-w-6xl mx-auto">
         <h1 className="text-2xl font-bold text-foreground mb-2">Agents</h1>
@@ -575,6 +572,69 @@ export default function AgentsPage() {
           </div>
         )}
       </div>
+
+      {/* Agent usage banner */}
+      {agentUsage && !agentUsage.hasGrowthAccess && (
+        <div className={`mb-6 rounded-lg border p-4 ${
+          !agentUsage.allowed
+            ? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
+            : agentUsage.freeActionsRemaining <= 3 || agentUsage.trialDaysRemaining <= 2
+            ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20"
+            : "border-border bg-muted/30"
+        }`}>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="text-sm">
+              {agentUsage.hasUnlimitedPlan ? (
+                <span className="font-medium text-green-700 dark:text-green-400">Unlimited agent actions</span>
+              ) : agentUsage.trialExpired && agentUsage.creditsRemaining > 0 ? (
+                <span><strong>{agentUsage.creditsRemaining}</strong> purchased actions remaining</span>
+              ) : agentUsage.trialExpired ? (
+                <span className="font-medium text-red-700 dark:text-red-400">Trial expired — purchase actions to continue</span>
+              ) : !agentUsage.allowed ? (
+                <span className="font-medium text-red-700 dark:text-red-400">Agent action limit reached</span>
+              ) : (
+                <span>
+                  <strong>{agentUsage.freeActionsRemaining}</strong>/10 free actions remaining
+                  {agentUsage.trialDaysRemaining > 0 && <span className="text-muted-foreground"> · {agentUsage.trialDaysRemaining} days left in trial</span>}
+                  {agentUsage.creditsRemaining > 0 && <span className="text-muted-foreground"> · +{agentUsage.creditsRemaining} purchased</span>}
+                </span>
+              )}
+            </div>
+            {!agentUsage.hasUnlimitedPlan && (
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    const res = await fetch("/api/billing/agent-checkout", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ type: "action_pack" }),
+                    });
+                    const data = await res.json();
+                    if (data.url) window.open(data.url, "_blank");
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-md border border-border bg-background hover:bg-accent transition-colors font-medium"
+                >
+                  Buy 10 actions · $10
+                </button>
+                <button
+                  onClick={async () => {
+                    const res = await fetch("/api/billing/agent-checkout", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ type: "unlimited" }),
+                    });
+                    const data = await res.json();
+                    if (data.url) window.open(data.url, "_blank");
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
+                >
+                  Unlimited · $99.99/mo
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-muted p-1 rounded-lg w-fit">

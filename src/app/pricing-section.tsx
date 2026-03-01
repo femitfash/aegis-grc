@@ -126,6 +126,7 @@ export function PricingSection() {
               {[
                 "1 compliance framework",
                 "10 AI copilot sessions / month",
+                "10 Agent actions (7-day trial)",
                 "Risk register & control library",
                 "Immutable audit trail",
                 "Watermarked report exports",
@@ -211,6 +212,7 @@ export function PricingSection() {
             <ul className="mb-6 space-y-2.5 text-sm text-muted-foreground">
               {[
                 "Unlimited AI copilot sessions",
+                "Unlimited Agent actions (fair use)",
                 "All compliance frameworks",
                 "Multi-framework gap analysis",
                 "Slack, Jira & GitHub integration",
@@ -306,6 +308,37 @@ export function PricingSection() {
           </div>
         </div>
 
+        {/* Agent Actions add-on */}
+        <div className="mt-10 rounded-xl border border-border bg-card p-8 text-left">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">🤖</span>
+                <h3 className="text-lg font-semibold">Agent Actions</h3>
+              </div>
+              <p className="text-sm text-muted-foreground max-w-xl">
+                Autonomous GRC agents monitor compliance, analyze risks, and surface gaps on a schedule.
+                Every plan includes a <strong>7-day free trial with 10 actions</strong>. Need more?
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4 shrink-0">
+              <div className="rounded-lg border border-border bg-muted/30 p-4 text-center min-w-[160px]">
+                <div className="text-2xl font-bold">$10</div>
+                <div className="text-sm text-muted-foreground">per 10 actions</div>
+                <div className="text-xs text-muted-foreground mt-1">pay-as-you-go</div>
+              </div>
+              <div className="rounded-lg border-2 border-primary bg-primary/5 p-4 text-center min-w-[160px]">
+                <div className="text-2xl font-bold">$99.99</div>
+                <div className="text-sm text-muted-foreground">/month</div>
+                <div className="text-xs text-muted-foreground mt-1">unlimited (fair use)</div>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-4">
+            Growth plan subscribers get unlimited agent actions included at no extra cost.
+          </p>
+        </div>
+
         {/* Trust signals */}
         <div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-green-500" /> No credit card required for trial</span>
@@ -345,6 +378,10 @@ export function PricingSection() {
               {
                 q: "Can I switch plans anytime?",
                 a: "Yes. Upgrade instantly — Stripe prorates the difference. Downgrades take effect at the end of your billing period so you never lose paid time.",
+              },
+              {
+                q: "What are Agent Actions and how do they differ from Copilot?",
+                a: "Copilot is a conversational AI assistant you interact with directly — it helps you create risks, controls, and more through chat. Agent Actions are autonomous background agents that run on a schedule (e.g. daily compliance scans, risk assessments) without manual interaction. Every plan gets 10 free agent actions during a 7-day trial. After that, you can purchase packs of 10 for $10, subscribe to unlimited for $99.99/mo, or upgrade to Growth which includes unlimited agent actions.",
               },
             ].map(({ q, a }) => (
               <details key={q} className="group px-6 py-4">

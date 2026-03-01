@@ -102,9 +102,53 @@ export async function POST(request: NextRequest) {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
+
+      // Handle one-time agent action pack purchase
+      if (session.mode === "payment" && session.metadata?.type === "agent_action_pack") {
+        const orgId = session.metadata.organization_id;
+        if (orgId) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: org } = await (admin as any)
+            .from("organizations")
+            .select("settings")
+            .eq("id", orgId)
+            .single();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const settings: Record<string, any> = org?.settings ?? {};
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (admin as any)
+            .from("organizations")
+            .update({
+              settings: {
+                ...settings,
+                agent_credits_purchased: (settings.agent_credits_purchased ?? 0) + 10,
+              },
+            })
+            .eq("id", orgId);
+        }
+        break;
+      }
+
+      // Handle agent unlimited subscription
       if (session.mode === "subscription" && session.subscription) {
         const sub = await stripe.subscriptions.retrieve(session.subscription as string);
-        await upsertSubscription(sub, session.customer as string);
+        if (sub.metadata?.type === "agent_unlimited") {
+          const orgId = sub.metadata.organization_id;
+          if (orgId) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (admin as any)
+              .from("subscriptions")
+              .update({
+                agent_plan: "unlimited",
+                agent_stripe_subscription_id: sub.id,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("organization_id", orgId);
+          }
+        } else {
+          // Regular Growth subscription
+          await upsertSubscription(sub, session.customer as string);
+        }
       }
       break;
     }
@@ -119,17 +163,31 @@ export async function POST(request: NextRequest) {
       const sub = event.data.object as Stripe.Subscription;
       const orgId = sub.metadata?.organization_id;
       if (orgId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (admin as any)
-          .from("subscriptions")
-          .update({ plan: "builder", status: "canceled", updated_at: new Date().toISOString() })
-          .eq("organization_id", orgId);
+        // Handle agent unlimited subscription cancellation
+        if (sub.metadata?.type === "agent_unlimited") {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (admin as any)
+            .from("subscriptions")
+            .update({
+              agent_plan: null,
+              agent_stripe_subscription_id: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("organization_id", orgId);
+        } else {
+          // Regular Growth subscription cancellation
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (admin as any)
+            .from("subscriptions")
+            .update({ plan: "builder", status: "canceled", updated_at: new Date().toISOString() })
+            .eq("organization_id", orgId);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (admin as any)
-          .from("organizations")
-          .update({ subscription_tier: "trial" })
-          .eq("id", orgId);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (admin as any)
+            .from("organizations")
+            .update({ subscription_tier: "trial" })
+            .eq("id", orgId);
+        }
       }
       break;
     }

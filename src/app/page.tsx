@@ -60,7 +60,7 @@ export default function Home() {
 
           <h1 className="mb-6 font-display text-4xl font-bold md:text-7xl">
             Describe what you need.{" "}
-            <span className="text-primary">The AI does the rest.</span>
+            <span className="text-primary">AI agents do the rest.</span>
           </h1>
 
           <p className="mx-auto mb-6 max-w-2xl text-lg text-muted-foreground md:text-xl">

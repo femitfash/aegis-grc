@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/shared/lib/supabase/server";
 import { createAdminClient } from "@/shared/lib/supabase/admin";
 import { runAgent } from "@/shared/lib/agents/executor";
+import { checkAgentUsage, incrementAgentRunCount } from "@/shared/lib/agents/usage";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -43,11 +44,24 @@ export async function POST(_request: NextRequest, { params }: RouteContext) {
       return Response.json({ error: "Agent not found" }, { status: 404 });
     }
 
+    // Check agent action usage / billing
+    const usage = await checkAgentUsage(userData.organization_id);
+    if (!usage.allowed) {
+      return Response.json({
+        error: "agent_limit_reached",
+        upgrade_prompt: true,
+        message: usage.reason,
+        usage,
+      }, { status: 402 });
+    }
+
     const result = await runAgent(id, userData.organization_id);
 
     if (result.error) {
       return Response.json({ error: result.error }, { status: 500 });
     }
+
+    await incrementAgentRunCount(userData.organization_id);
 
     return Response.json({ success: true, tasks_created: result.tasksCreated });
   } catch (err) {

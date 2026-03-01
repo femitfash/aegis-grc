@@ -194,6 +194,11 @@ function SettingsPageInner() {
 
   // AI Copilot
   const [aiUsage, setAiUsage] = useState<{ write_count: number; has_custom_key: boolean; limit: number } | null>(null);
+  const [agentUsage, setAgentUsage] = useState<{
+    allowed: boolean; runCount: number; trialStartedAt: string | null; trialExpired: boolean;
+    trialDaysRemaining: number; freeActionsRemaining: number; creditsRemaining: number;
+    hasUnlimitedPlan: boolean; hasGrowthAccess: boolean;
+  } | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [apiKeySaved, setApiKeySaved] = useState(false);
   const [apiKeyError, setApiKeyError] = useState("");
@@ -258,6 +263,10 @@ function SettingsPageInner() {
       fetch("/api/settings/copilot")
         .then((r) => r.json())
         .then(setAiUsage)
+        .catch(() => {});
+      fetch("/api/settings/agent-usage")
+        .then((r) => r.json())
+        .then(setAgentUsage)
         .catch(() => {});
     }
     if (activeTab === "integrations") {
@@ -1492,6 +1501,100 @@ function SettingsPageInner() {
                 <p className="text-xs text-muted-foreground mt-3">
                   Your key is only used for requests from your organization and is not logged.
                 </p>
+              </div>
+
+              {/* Agent Actions usage */}
+              <div className="p-6 rounded-lg border bg-card">
+                <h2 className="font-semibold mb-1">Agent Actions</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Autonomous agents run scheduled compliance tasks. Each run counts as one action.
+                </p>
+                {agentUsage ? (
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">
+                        {agentUsage.hasGrowthAccess || agentUsage.hasUnlimitedPlan ? (
+                          <span className="text-green-600">Unlimited agent actions</span>
+                        ) : (
+                          <span>
+                            <strong>{agentUsage.runCount}</strong> actions used
+                            {!agentUsage.trialExpired && ` · ${agentUsage.freeActionsRemaining} of 10 free remaining`}
+                          </span>
+                        )}
+                      </span>
+                      {!agentUsage.hasGrowthAccess && !agentUsage.hasUnlimitedPlan && (
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                          !agentUsage.allowed ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+                          agentUsage.freeActionsRemaining <= 3 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                          "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        }`}>
+                          {!agentUsage.allowed ? "Limit reached" :
+                           agentUsage.trialExpired ? `${agentUsage.creditsRemaining} credits left` :
+                           `${agentUsage.trialDaysRemaining}d trial remaining`}
+                        </span>
+                      )}
+                    </div>
+                    {!agentUsage.hasGrowthAccess && !agentUsage.hasUnlimitedPlan && (
+                      <>
+                        {!agentUsage.trialExpired && (
+                          <div className="w-full bg-muted rounded-full h-2 mb-3">
+                            <div
+                              className={`h-2 rounded-full transition-all ${
+                                agentUsage.freeActionsRemaining <= 0 ? "bg-red-500" :
+                                agentUsage.freeActionsRemaining <= 3 ? "bg-yellow-500" : "bg-green-500"
+                              }`}
+                              style={{ width: `${Math.min((agentUsage.runCount / 10) * 100, 100)}%` }}
+                            />
+                          </div>
+                        )}
+                        {agentUsage.creditsRemaining > 0 && (
+                          <p className="text-xs text-muted-foreground mb-3">
+                            +{agentUsage.creditsRemaining} purchased actions available
+                          </p>
+                        )}
+                        <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-center justify-between gap-3">
+                          <p className="text-xs text-muted-foreground">
+                            {!agentUsage.allowed
+                              ? "Purchase more actions or subscribe to unlimited."
+                              : "Need more agent actions?"}
+                          </p>
+                          <div className="flex gap-2 shrink-0">
+                            <button
+                              onClick={async () => {
+                                const res = await fetch("/api/billing/agent-checkout", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ type: "action_pack" }),
+                                });
+                                const data = await res.json();
+                                if (data.url) window.open(data.url, "_blank");
+                              }}
+                              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent transition-colors"
+                            >
+                              10 actions · $10
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const res = await fetch("/api/billing/agent-checkout", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ type: "unlimited" }),
+                                });
+                                const data = await res.json();
+                                if (data.url) window.open(data.url, "_blank");
+                              }}
+                              className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+                            >
+                              Unlimited · $99.99/mo
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <div className="h-4 bg-muted rounded animate-pulse w-48" />
+                )}
               </div>
             </div>
           )}
