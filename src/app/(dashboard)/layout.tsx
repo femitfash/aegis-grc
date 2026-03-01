@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandLogo } from "@/shared/components/brand-logo";
@@ -31,17 +31,35 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [copilotOpen, setCopilotOpen] = useState(true);
   const [plan, setPlan] = useState<string>("builder");
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     fetch("/api/billing/subscription")
       .then((r) => r.json())
       .then((data) => { if (data.subscription?.plan) setPlan(data.subscription.plan); })
       .catch(() => {});
+
+    // Check if user has completed onboarding
+    fetch("/api/user/onboarding")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.onboarded) {
+          setShowOnboarding(true);
+          setCopilotOpen(true);
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  const dismissOnboarding = useCallback(() => {
+    setShowOnboarding(false);
+    fetch("/api/user/onboarding", { method: "POST" }).catch(() => {});
+  }, []);
+
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
-      <aside className="w-64 border-r bg-card flex flex-col">
+      <aside className={`w-64 border-r bg-card flex flex-col ${showOnboarding ? "pointer-events-none select-none" : ""}`}>
         <div className="p-4 border-b">
           <Link href="/dashboard" className="flex items-center" suppressHydrationWarning>
             <BrandLogo className="text-2xl" />
@@ -101,16 +119,52 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
+      <main className={`flex-1 overflow-auto ${showOnboarding ? "pointer-events-none select-none" : ""}`}>
         <div className="p-8">{children}</div>
       </main>
 
+      {/* Onboarding overlay — grays out sidebar + main, highlights copilot */}
+      {showOnboarding && (
+        <>
+          {/* Semi-transparent overlay covering sidebar + main content (not copilot) */}
+          <div className="fixed inset-0 bg-black/50 z-40" style={{ right: copilotOpen ? "384px" : "0" }} />
+
+          {/* Onboarding callout card — positioned left of copilot */}
+          <div
+            className="fixed z-50 flex items-start gap-3"
+            style={{ right: copilotOpen ? "400px" : "16px", top: "30%" }}
+          >
+            <div className="bg-card border-2 border-primary rounded-xl shadow-2xl p-5 max-w-xs">
+              <h3 className="text-base font-bold mb-2">Welcome to FastGRC!</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Meet your <strong className="text-primary">AI Copilot</strong> &mdash; the fastest way to manage compliance.
+              </p>
+              <p className="text-sm text-muted-foreground mb-4">
+                <strong className="text-foreground">Click a suggestion</strong> in the Copilot panel to see it in action, or type your own request.
+              </p>
+              <button
+                onClick={dismissOnboarding}
+                className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
+              >
+                Skip intro
+              </button>
+              {/* Arrow pointing right toward copilot */}
+              <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-0 h-0 border-y-[8px] border-y-transparent border-l-[8px] border-l-primary" />
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Copilot Panel — receives current page context so the AI can tailor suggestions */}
       {copilotOpen && (
-        <CopilotPanel
-          onClose={() => setCopilotOpen(false)}
-          context={{ page: pathname }}
-        />
+        <div className={showOnboarding ? "relative z-50 ring-2 ring-primary ring-offset-2 rounded-l-lg" : ""}>
+          <CopilotPanel
+            onClose={() => { if (!showOnboarding) setCopilotOpen(false); }}
+            context={{ page: pathname }}
+            onFirstMessage={showOnboarding ? dismissOnboarding : undefined}
+            highlightPrompts={showOnboarding}
+          />
+        </div>
       )}
     </div>
   );

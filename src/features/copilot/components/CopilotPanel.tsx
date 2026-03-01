@@ -26,6 +26,8 @@ interface CopilotAction {
 interface CopilotPanelProps {
   onClose: () => void;
   context?: { page: string; entityType?: string };
+  onFirstMessage?: () => void;
+  highlightPrompts?: boolean;
 }
 
 // Generate a stable conversation ID per session
@@ -58,14 +60,14 @@ const SUGGESTION_CHIPS = [
   { label: "High risks", prompt: "Show all high severity risks" },
 ];
 
-export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
+export function CopilotPanel({ onClose, context, onFirstMessage, highlightPrompts }: CopilotPanelProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "assistant",
       content:
-        "**Meet your GRC Copilot**\n\nI'm your AI assistant inside FastGRC.ai. Instead of clicking through menus or filling out forms, just type what you need in plain English — I'll do the work.\n\nTry clicking a suggestion below, or type your own request:",
+        "**GRC Copilot - AI Assistant**\n\nInstead of clicking through menus or filling out forms, just type what you need in plain English — I'll do the work.\n\nTry clicking a suggestion below, or type your own request:",
       timestamp: new Date(),
     },
   ]);
@@ -258,6 +260,11 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
     setInput("");
     setIsLoading(true);
 
+    // Notify parent on first user message (for onboarding dismissal)
+    if (onFirstMessage && messages.length === 1 && messages[0].id === "welcome") {
+      onFirstMessage();
+    }
+
     // Create a placeholder assistant message for streaming
     const assistantMsgId = generateId();
     const assistantMessage: Message = {
@@ -432,6 +439,10 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
                   text={message.content}
                   isUser={message.role === "user"}
                   isStreaming={message.isStreaming}
+                  onSuggestClick={(prompt: string) => {
+                    setInput(prompt);
+                    inputRef.current?.focus();
+                  }}
                 />
               </div>
             </div>
@@ -458,7 +469,11 @@ export function CopilotPanel({ onClose, context }: CopilotPanelProps) {
                   setInput(chip.prompt);
                   inputRef.current?.focus();
                 }}
-                className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 hover:border-primary/40 transition-colors"
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  highlightPrompts
+                    ? "border-primary bg-primary/15 text-primary hover:bg-primary/25 hover:border-primary/80 shadow-sm shadow-primary/20 animate-pulse"
+                    : "border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 hover:border-primary/40"
+                }`}
               >
                 {chip.label}
               </button>
@@ -515,10 +530,12 @@ function MarkdownText({
   text,
   isUser,
   isStreaming,
+  onSuggestClick,
 }: {
   text: string;
   isUser: boolean;
   isStreaming?: boolean;
+  onSuggestClick?: (prompt: string) => void;
 }) {
   if (!text && isStreaming) {
     return (
@@ -562,6 +579,22 @@ function MarkdownText({
             <span className="opacity-60 font-medium min-w-[16px]">{match[1]}.</span>
             <span>{renderInline(match[2], isUser)}</span>
           </div>
+        );
+      }
+    } else if (/^\[suggest:.*\].*\[\/suggest\]$/.test(line.trim())) {
+      const suggestMatch = line.trim().match(/^\[suggest:(.*?)\](.*?)\[\/suggest\]$/);
+      if (suggestMatch && onSuggestClick) {
+        const suggestPrompt = suggestMatch[1];
+        const suggestLabel = suggestMatch[2];
+        elements.push(
+          <button
+            key={i}
+            onClick={() => onSuggestClick(suggestPrompt)}
+            className="flex items-center gap-2 w-full text-left px-3 py-2 mt-1 rounded-lg border border-primary/30 bg-primary/5 text-sm font-medium text-primary hover:bg-primary/15 hover:border-primary/50 transition-colors"
+          >
+            <span className="shrink-0">&#x2192;</span>
+            <span>{suggestLabel}</span>
+          </button>
         );
       }
     } else if (line.trim() === "[upgrade_button]") {

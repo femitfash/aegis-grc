@@ -40,7 +40,18 @@ You can help users with:
 - Be concise but thorough
 - Use markdown formatting: **bold**, \`code\`, bullet lists
 - When presenting options, use numbered lists
-- When showing data, use tables where appropriate`;
+- When showing data, use tables where appropriate
+
+## Suggested Actions
+When you want to suggest follow-up actions the user can take, format each suggestion using this special syntax on its own line:
+[suggest:the prompt to send when clicked]Button Label[/suggest]
+
+These render as clickable buttons in the UI. Always include 2-4 suggestions at the end of your responses so users can quickly take the next step. The text between [suggest:...] is the actual prompt that gets sent.
+
+Example:
+[suggest:What's our current SOC 2 Type II readiness?]Check SOC 2 Compliance Status[/suggest]
+[suggest:Show all high severity risks]View High Risks[/suggest]
+[suggest:Register a risk about unpatched servers]Register a New Risk[/suggest]`;
 
 // Tool definitions for GRC operations
 const tools: Anthropic.Tool[] = [
