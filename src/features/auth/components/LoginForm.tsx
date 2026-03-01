@@ -123,21 +123,6 @@ export function LoginForm() {
       {/* Error message from form submission */}
       {error && <AuthAlert type="error" message={error} />}
 
-      {/* OAuth Providers */}
-      <OAuthButtons action={signInWithOAuth} isLoading={isLoading} />
-
-      {/* Divider */}
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-2 text-muted-foreground">
-            Or continue with email
-          </span>
-        </div>
-      </div>
-
       {/* Email/Password form */}
       <form action={handleSubmit} className="space-y-4">
         <div className="space-y-2">
