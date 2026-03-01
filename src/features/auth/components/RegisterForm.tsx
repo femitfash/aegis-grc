@@ -32,7 +32,8 @@ export function RegisterForm() {
         err instanceof Error &&
         !err.message.includes("NEXT_REDIRECT")
       ) {
-        setError("An unexpected error occurred. Please try again.");
+        console.error("[RegisterForm] signUp error:", err);
+        setError(err.message || "An unexpected error occurred. Please try again.");
       }
     } finally {
       setIsLoading(false);

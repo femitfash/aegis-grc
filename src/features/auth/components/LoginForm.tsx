@@ -97,7 +97,8 @@ export function LoginForm() {
         err instanceof Error &&
         !err.message.includes("NEXT_REDIRECT")
       ) {
-        setError("An unexpected error occurred. Please try again.");
+        console.error("[LoginForm] signInWithPassword error:", err);
+        setError(err.message || "An unexpected error occurred. Please try again.");
       }
     } finally {
       setIsLoading(false);
