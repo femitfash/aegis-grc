@@ -28,9 +28,13 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const type: string = body.type;
+    const billing: string = body.billing ?? "monthly";
 
     if (!["action_pack", "unlimited"].includes(type)) {
       return Response.json({ error: "Invalid type. Must be 'action_pack' or 'unlimited'." }, { status: 400 });
+    }
+    if (!["monthly", "annual"].includes(billing)) {
+      return Response.json({ error: "Invalid billing. Must be 'monthly' or 'annual'." }, { status: 400 });
     }
 
     // Get or create Stripe customer
@@ -67,14 +71,18 @@ export async function POST(request: NextRequest) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.fastgrc.ai";
 
     if (type === "action_pack") {
-      if (!PRICES.agent_action_pack) {
+      const priceId = billing === "annual"
+        ? PRICES.agent_action_pack_annual
+        : PRICES.agent_action_pack_monthly;
+
+      if (!priceId) {
         return Response.json({ error: "Agent action pack price not configured" }, { status: 503 });
       }
 
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         mode: "payment",
-        line_items: [{ price: PRICES.agent_action_pack, quantity: 1 }],
+        line_items: [{ price: priceId, quantity: 1 }],
         success_url: `${appUrl}/dashboard/agents?purchased=actions`,
         cancel_url: `${appUrl}/dashboard/agents`,
         metadata: { organization_id: organizationId, type: "agent_action_pack" },
@@ -84,14 +92,18 @@ export async function POST(request: NextRequest) {
     }
 
     // type === "unlimited"
-    if (!PRICES.agent_unlimited) {
+    const priceId = billing === "annual"
+      ? PRICES.agent_unlimited_annual
+      : PRICES.agent_unlimited_monthly;
+
+    if (!priceId) {
       return Response.json({ error: "Agent unlimited price not configured" }, { status: 503 });
     }
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
-      line_items: [{ price: PRICES.agent_unlimited, quantity: 1 }],
+      line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${appUrl}/dashboard/agents?purchased=unlimited`,
       cancel_url: `${appUrl}/dashboard/agents`,
       subscription_data: {

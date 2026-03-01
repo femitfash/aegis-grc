@@ -13,16 +13,20 @@ export const PRICES = {
   contributor_annual:  process.env.STRIPE_PRICE_CONTRIBUTOR_ANNUAL  ?? "",
   readonly_monthly:    process.env.STRIPE_PRICE_READONLY_MONTHLY    ?? "",
   readonly_annual:     process.env.STRIPE_PRICE_READONLY_ANNUAL     ?? "",
-  agent_action_pack:   process.env.STRIPE_PRICE_AGENT_ACTION_PACK   ?? "",  // $10 one-time (10 actions)
-  agent_unlimited:     process.env.STRIPE_PRICE_AGENT_UNLIMITED     ?? "",  // $99.99/mo recurring
+  agent_action_pack_monthly: process.env.STRIPE_PRICE_AGENT_ACTION_PACK_MONTHLY ?? "",  // $10 one-time (10 actions)
+  agent_action_pack_annual:  process.env.STRIPE_PRICE_AGENT_ACTION_PACK_ANNUAL  ?? "",  // $96/yr (10 actions)
+  agent_unlimited_monthly:   process.env.STRIPE_PRICE_AGENT_UNLIMITED_MONTHLY   ?? "",  // $99.99/mo recurring
+  agent_unlimited_annual:    process.env.STRIPE_PRICE_AGENT_UNLIMITED_ANNUAL    ?? "",  // $999.99/yr recurring
 } as const;
 
 // Public display pricing (cents)
 export const DISPLAY_PRICES = {
-  contributor_monthly:      4900,   // $49.00
-  contributor_annual:       3900,   // $39.00 /mo billed annually ($468/yr)
-  readonly_monthly:          999,   // $9.99
-  readonly_annual:           799,   // $7.99 /mo billed annually ($95.88/yr)
-  agent_action_pack:        1000,   // $10.00 one-time (10 actions)
-  agent_unlimited_monthly:  9999,   // $99.99/mo
+  contributor_monthly:              4900,   // $49.00
+  contributor_annual:               3900,   // $39.00 /mo billed annually ($468/yr)
+  readonly_monthly:                  999,   // $9.99
+  readonly_annual:                   799,   // $7.99 /mo billed annually ($95.88/yr)
+  agent_action_pack_monthly:        1000,   // $10.00 one-time (10 actions)
+  agent_action_pack_annual:         9600,   // $96.00/yr (10 actions, 2 months free)
+  agent_unlimited_monthly:          9999,   // $99.99/mo
+  agent_unlimited_annual:          99999,   // $999.99/yr (~2 months free)
 } as const;
