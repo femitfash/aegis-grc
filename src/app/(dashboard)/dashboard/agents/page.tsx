@@ -367,10 +367,8 @@ export default function AgentsPage() {
 
       const subData = await subRes.json() as { subscription?: { plan?: string; status?: string; current_period_end?: string } };
       const sub = subData.subscription;
-      const isPaid = sub?.plan && sub.plan !== "builder";
-      const isActive = sub?.status === "active" || sub?.status === "trialing";
       const notExpired = sub?.current_period_end ? new Date(sub.current_period_end) > new Date() : false;
-      setPlanEligible((isPaid && isActive) || (isPaid && notExpired) || false);
+      setPlanEligible(notExpired);
     } catch {
       setUserRole("viewer");
       setPlanEligible(false);

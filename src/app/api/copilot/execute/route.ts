@@ -80,14 +80,13 @@ export async function POST(request: NextRequest) {
       .eq("organization_id", organizationId)
       .single();
 
-    const isActiveSubscription = subData?.status === "active" || subData?.status === "trialing";
     const hasNotExpired = subData?.current_period_end
       ? new Date(subData.current_period_end) > new Date()
       : false;
-    // Grant paid access if the subscription is active/trialing AND period hasn't expired.
-    // This covers canceled-but-not-yet-expired subscriptions where the plan column
-    // may have been prematurely set back to "builder".
-    const hasPaidAccess = isActiveSubscription && hasNotExpired;
+    // Grant paid access if current_period_end is still in the future.
+    // This is the authoritative check — Stripe guarantees access until this date,
+    // regardless of whether status is "active", "canceled", or plan was set to "builder".
+    const hasPaidAccess = hasNotExpired;
 
     // Enforce free tier limit unless org has their own API key or an active paid subscription
     if (writeCount >= FREE_LIMIT && !hasCustomKey && !hasPaidAccess) {
