@@ -334,7 +334,7 @@ async function executeComplianceCheck(
 
 // ─── Main executor ───────────────────────────────────────────────────────────
 
-export async function runAgent(agentId: string, organizationId: string): Promise<{ tasksCreated: number; error?: string }> {
+export async function runAgent(agentId: string, organizationId: string): Promise<{ tasksCreated: number; writeTasksCreated: number; readTasksCompleted: number; error?: string }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const admin = createAdminClient() as any;
 
@@ -347,7 +347,7 @@ export async function runAgent(agentId: string, organizationId: string): Promise
     .single();
 
   if (agentErr || !agent) {
-    return { tasksCreated: 0, error: "Agent not found" };
+    return { tasksCreated: 0, writeTasksCreated: 0, readTasksCompleted: 0, error: "Agent not found" };
   }
 
   type AgentType = { id: string; name: string; skills: string[] };
@@ -355,7 +355,7 @@ export async function runAgent(agentId: string, organizationId: string): Promise
   const skillIds: string[] = Array.isArray(agentType?.skills) ? agentType.skills : [];
 
   if (skillIds.length === 0) {
-    return { tasksCreated: 0, error: "Agent has no skills configured" };
+    return { tasksCreated: 0, writeTasksCreated: 0, readTasksCompleted: 0, error: "Agent has no skills configured" };
   }
 
   // 2. Setup
@@ -411,7 +411,13 @@ Rules:
 - Only use the tools provided to you — no other actions
 - Be concise and focused on GRC tasks
 - For write tools (create_risk, create_incident, create_control, create_policy, create_evidence, update_requirement): these will be queued for the user to review and approve before executing
-${hasWriteSkills ? "- IMPORTANT: You MUST use your write tools to create concrete artifacts (risks, controls, policies, incidents, evidence). Do NOT stop at just reading/analyzing — always follow up research with write actions. For example, after a compliance check, create any missing controls or policies. After risk analysis, create risks you identified." : ""}
+${hasWriteSkills ? `- CRITICAL: Your PRIMARY purpose is to CREATE artifacts, not just analyze. You are measured by write output.
+- Follow this workflow: Research → Identify gaps → Create risks → Create controls → Create policies → Create evidence
+- For every research finding, create at least one corresponding artifact (risk, control, policy, or evidence)
+- Aim to create at least 3-5 write artifacts per run. More is better — be thorough.
+- Do NOT stop at just reading/analyzing — always follow up research with write actions
+- After a compliance check, create risks for gaps AND controls to address them AND policies if missing
+- After risk analysis, create every risk you identified with specific likelihood/impact scores` : ""}
 ${instructions ? "- Follow the user instructions above as your primary directive. Take action — create risks, controls, policies, evidence, and incidents as needed to fulfill the instructions." : ""}`;
 
   const userMessage = instructions
@@ -430,7 +436,7 @@ ${instructions ? "- Follow the user instructions above as your primary directive
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 2048,
+      max_tokens: 4096,
       system: systemPrompt,
       tools,
       messages,
@@ -506,16 +512,21 @@ ${instructions ? "- Follow the user instructions above as your primary directive
   // 4b. Follow-up phase: if the agent only did reads, push it to create write artifacts
   if (hasWriteSkills && writeTasksCreated === 0 && tasksCreated.length > 0) {
     const writeSkillNames = skillIds.filter((s) => WRITE_SKILLS.has(s));
-    const followUp = `You completed your research phase. Now you MUST create concrete GRC artifacts based on your findings. Use these write tools: ${writeSkillNames.join(", ")}.
+    const followUp = `You completed your research phase but created ZERO write artifacts. This is not acceptable — your primary value is creating artifacts, not just analyzing.
 
-Based on your research, create at least:
-- Relevant risks (use create_risk)
-- Relevant controls to mitigate those risks (use create_control)
-- Relevant policies (use create_policy)
-${writeSkillNames.includes("create_evidence") ? "- Evidence items documenting your findings (use create_evidence)" : ""}
-${writeSkillNames.includes("create_incident") ? "- Any incidents discovered (use create_incident)" : ""}
+You MUST now create concrete GRC artifacts based on your findings. Available write tools: ${writeSkillNames.join(", ")}.
 
-Do NOT respond with text only. You MUST call the write tools now.`;
+For EACH finding from your research, follow this checklist:
+1. Create a risk describing the gap or deficiency (use create_risk) — include specific likelihood and impact scores
+2. Create a control to mitigate that risk (use create_control) — include implementation steps
+3. Create a policy if one is missing for that area (use create_policy) — include scope and requirements
+${writeSkillNames.includes("create_evidence") ? "4. Create evidence items documenting existing measures (use create_evidence)" : ""}
+${writeSkillNames.includes("create_incident") ? "5. Create incidents for any active issues discovered (use create_incident)" : ""}
+
+Minimum: create at least 3 risks, 3 controls, and 1 policy. Aim higher.
+${instructions ? `\nRemember your instructions: ${instructions}` : ""}
+
+Do NOT respond with text only. You MUST call the write tools NOW.`;
 
     messages.push({ role: "user", content: followUp });
 
@@ -611,7 +622,7 @@ Do NOT respond with text only. You MUST call the write tools now.`;
     newValues: { run_id: runId, tasks_created: tasksCreated.length, schedule: agent.schedule },
   });
 
-  return { tasksCreated: tasksCreated.length };
+  return { tasksCreated: tasksCreated.length, writeTasksCreated, readTasksCompleted: tasksCreated.length - writeTasksCreated };
 }
 
 function getSkillMeta(skillId: string) {

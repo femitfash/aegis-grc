@@ -63,7 +63,7 @@ export async function POST(_request: NextRequest, { params }: RouteContext) {
 
     await incrementAgentRunCount(userData.organization_id);
 
-    return Response.json({ success: true, tasks_created: result.tasksCreated });
+    return Response.json({ success: true, tasks_created: result.tasksCreated, write_tasks: result.writeTasksCreated, read_tasks: result.readTasksCompleted });
   } catch (err) {
     return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }

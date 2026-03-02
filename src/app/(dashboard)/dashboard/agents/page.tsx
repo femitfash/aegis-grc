@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { SKILL_CATALOG, SCHEDULE_LABELS } from "@/shared/lib/agents/skills";
 import { ConfirmModal } from "@/shared/components/modals";
+import { AGENT_INSTRUCTION_TEMPLATES, TEMPLATE_CATEGORIES } from "@/shared/lib/agents/instruction-templates";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,83 @@ function SkillChip({ skillId }: { skillId: string }) {
     <span className={`inline-flex items-center px-2 py-0.5 text-xs rounded-full border mr-1 mb-1 ${isWrite ? "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800" : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800"}`}>
       {skill?.name ?? skillId}
     </span>
+  );
+}
+
+// ─── Enhance Buttons ─────────────────────────────────────────────────────────
+
+function EnhanceButtons({ instructions, skills, agentDescription, onEnhanced }: {
+  instructions: string;
+  skills?: string[];
+  agentDescription?: string;
+  onEnhanced: (text: string) => void;
+}) {
+  const [loading, setLoading] = useState<string | null>(null);
+  const [previous, setPrevious] = useState<string | null>(null);
+
+  const handleEnhance = async (mode: "refine" | "augment" | "expert") => {
+    setLoading(mode);
+    try {
+      const res = await fetch("/api/agents/enhance-instructions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instructions, mode, skills, agentDescription }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to enhance");
+      setPrevious(instructions);
+      onEnhanced(data.enhanced);
+    } catch {
+      // Silently fail — user can retry
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleUndo = () => {
+    if (previous !== null) {
+      onEnhanced(previous);
+      setPrevious(null);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-xs text-muted-foreground">Improve:</span>
+      <button
+        type="button"
+        onClick={() => handleEnhance("refine")}
+        disabled={loading !== null || !instructions.trim()}
+        className="px-2.5 py-1 text-xs border rounded-md hover:bg-muted disabled:opacity-40 transition-colors"
+      >
+        {loading === "refine" ? "Refining…" : "Refine"}
+      </button>
+      <button
+        type="button"
+        onClick={() => handleEnhance("augment")}
+        disabled={loading !== null || !instructions.trim()}
+        className="px-2.5 py-1 text-xs border rounded-md hover:bg-muted disabled:opacity-40 transition-colors"
+      >
+        {loading === "augment" ? "Augmenting…" : "Augment"}
+      </button>
+      <button
+        type="button"
+        onClick={() => handleEnhance("expert")}
+        disabled={loading !== null}
+        className="px-2.5 py-1 text-xs border border-primary/30 text-primary rounded-md hover:bg-primary/5 disabled:opacity-40 transition-colors"
+      >
+        {loading === "expert" ? "Generating…" : "GRC Expert"}
+      </button>
+      {previous !== null && (
+        <button
+          type="button"
+          onClick={handleUndo}
+          className="text-xs text-muted-foreground hover:text-foreground underline"
+        >
+          Undo
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -291,14 +369,39 @@ function NewAgentModal({ agentTypes, onClose, onCreated }: { agentTypes: AgentTy
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">Instructions</label>
+            <select
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 mb-2"
+              value=""
+              onChange={(e) => {
+                const tpl = AGENT_INSTRUCTION_TEMPLATES.find((t) => t.id === e.target.value);
+                if (tpl) setForm((f) => ({ ...f, instructions: tpl.instructions }));
+              }}
+            >
+              <option value="">Start from a template…</option>
+              {TEMPLATE_CATEGORIES.map((cat) => (
+                <optgroup key={cat} label={cat}>
+                  {AGENT_INSTRUCTION_TEMPLATES.filter((t) => t.category === cat).map((t) => (
+                    <option key={t.id} value={t.id}>{t.title}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
             <textarea
               className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
-              rows={3}
+              rows={4}
               placeholder="e.g. Search for the latest NIST CSF updates and check our SOC 2 compliance gaps. Focus on access control."
               value={form.instructions}
               onChange={(e) => setForm((f) => ({ ...f, instructions: e.target.value }))}
             />
-            <p className="text-xs text-muted-foreground mt-1">Tell the agent what to focus on when it runs</p>
+            <div className="mt-2">
+              <EnhanceButtons
+                instructions={form.instructions}
+                skills={selectedType?.skills}
+                agentDescription={form.description}
+                onEnhanced={(text) => setForm((f) => ({ ...f, instructions: text }))}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Tell the agent what to focus on when it runs. Use the buttons above to improve your instructions with AI.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">Custom Config (optional)</label>
@@ -454,7 +557,7 @@ export default function AgentsPage() {
     setActionErrors((e) => ({ ...e, [agent.id]: "" }));
     try {
       const res = await fetch(`/api/agents/${agent.id}/run`, { method: "POST" });
-      const data = await res.json() as { success?: boolean; tasks_created?: number; error?: string; usage?: typeof agentUsage };
+      const data = await res.json() as { success?: boolean; tasks_created?: number; write_tasks?: number; read_tasks?: number; error?: string; usage?: typeof agentUsage };
       if (res.status === 402) {
         // Usage limit reached — refresh usage and show error
         if (data.usage) setAgentUsage(data.usage);
@@ -465,7 +568,11 @@ export default function AgentsPage() {
       // Refresh usage after successful run
       fetchRole();
       await fetchAgents();
-      // Switch to tasks tab to show results
+      // Show run summary then switch to tasks tab
+      const summary = data.write_tasks
+        ? `Created ${data.tasks_created} tasks (${data.write_tasks} pending approval, ${data.read_tasks} completed)`
+        : `Created ${data.tasks_created ?? 0} tasks`;
+      setActionErrors((e) => ({ ...e, [agent.id]: `✓ ${summary}` }));
       setActiveTab("tasks");
       await fetchTasks();
     } catch (err) {
@@ -895,15 +1002,45 @@ export default function AgentsPage() {
                                   <label className="block text-xs font-medium text-muted-foreground mb-1">
                                     Instructions — tell this agent what to focus on when it runs
                                   </label>
+                                  {isAdminOrOwner && (
+                                    <select
+                                      className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 mb-2"
+                                      value=""
+                                      onClick={(e) => e.stopPropagation()}
+                                      onChange={(e) => {
+                                        const tpl = AGENT_INSTRUCTION_TEMPLATES.find((t) => t.id === e.target.value);
+                                        if (tpl) setEditingInstructions((prev) => ({ ...prev, [agent.id]: tpl.instructions }));
+                                      }}
+                                    >
+                                      <option value="">Start from a template…</option>
+                                      {TEMPLATE_CATEGORIES.map((cat) => (
+                                        <optgroup key={cat} label={cat}>
+                                          {AGENT_INSTRUCTION_TEMPLATES.filter((t) => t.category === cat).map((t) => (
+                                            <option key={t.id} value={t.id}>{t.title}</option>
+                                          ))}
+                                        </optgroup>
+                                      ))}
+                                    </select>
+                                  )}
                                   <textarea
                                     className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
-                                    rows={3}
+                                    rows={4}
                                     placeholder='e.g. "Implement all GRC for orthopedic surgery center following US law requirements. Find applicable frameworks and ensure compliance is up to date."'
                                     value={editValue}
                                     onClick={(e) => e.stopPropagation()}
                                     onChange={(e) => setEditingInstructions((prev) => ({ ...prev, [agent.id]: e.target.value }))}
                                     disabled={!isAdminOrOwner}
                                   />
+                                  {isAdminOrOwner && (
+                                    <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                                      <EnhanceButtons
+                                        instructions={editValue}
+                                        skills={agent.agent_type?.skills}
+                                        agentDescription={agent.description}
+                                        onEnhanced={(text) => setEditingInstructions((prev) => ({ ...prev, [agent.id]: text }))}
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                                 <div>
                                   <label className="block text-xs font-medium text-muted-foreground mb-1">
