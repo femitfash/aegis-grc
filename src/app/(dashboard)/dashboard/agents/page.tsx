@@ -375,7 +375,8 @@ export default function AgentsPage() {
   const [decliningTaskId, setDecliningTaskId] = useState<string | null>(null);
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
   const [editingInstructions, setEditingInstructions] = useState<Record<string, string>>({});
-  const [savingInstructionsId, setSavingInstructionsId] = useState<string | null>(null);
+  const [editingSchedule, setEditingSchedule] = useState<Record<string, string>>({});
+  const [savingAgentId, setSavingAgentId] = useState<string | null>(null);
 
   const isAdminOrOwner = userRole === null || userRole === "owner" || userRole === "admin";
   const canCreateAgents = plan === "enterprise";
@@ -503,22 +504,26 @@ export default function AgentsPage() {
     }
   };
 
-  const handleSaveInstructions = async (agent: Agent) => {
-    setSavingInstructionsId(agent.id);
+  const handleSaveAgent = async (agent: Agent) => {
+    setSavingAgentId(agent.id);
     setActionErrors((e) => ({ ...e, [agent.id]: "" }));
     try {
       const instructions = editingInstructions[agent.id] ?? "";
+      const schedule = editingSchedule[agent.id] ?? agent.schedule;
       const res = await fetch(`/api/agents/${agent.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ config: { ...agent.config, instructions } }),
+        body: JSON.stringify({
+          config: { ...agent.config, instructions },
+          schedule,
+        }),
       });
       if (!res.ok) { const d = await res.json() as { error?: string }; throw new Error(d.error); }
       await fetchAgents();
     } catch (err) {
       setActionErrors((e) => ({ ...e, [agent.id]: err instanceof Error ? err.message : "Failed to save" }));
     } finally {
-      setSavingInstructionsId(null);
+      setSavingAgentId(null);
     }
   };
 
@@ -764,7 +769,8 @@ export default function AgentsPage() {
                     const currentInstructions = (agent.config?.instructions as string) ?? "";
                     const isExpanded = expandedAgentId === agent.id;
                     const editValue = editingInstructions[agent.id] ?? currentInstructions;
-                    const hasChanges = editValue !== currentInstructions;
+                    const scheduleValue = editingSchedule[agent.id] ?? agent.schedule;
+                    const hasChanges = editValue !== currentInstructions || scheduleValue !== agent.schedule;
 
                     return (
                       <>
@@ -774,8 +780,13 @@ export default function AgentsPage() {
                           onClick={() => {
                             setExpandedAgentId((prev) => {
                               const next = prev === agent.id ? null : agent.id;
-                              if (next && !(agent.id in editingInstructions)) {
-                                setEditingInstructions((e) => ({ ...e, [agent.id]: currentInstructions }));
+                              if (next) {
+                                if (!(agent.id in editingInstructions)) {
+                                  setEditingInstructions((e) => ({ ...e, [agent.id]: currentInstructions }));
+                                }
+                                if (!(agent.id in editingSchedule)) {
+                                  setEditingSchedule((e) => ({ ...e, [agent.id]: agent.schedule }));
+                                }
                               }
                               return next;
                             });
@@ -832,7 +843,7 @@ export default function AgentsPage() {
                         {isExpanded && (
                           <tr key={`${agent.id}-detail`}>
                             <td colSpan={isAdminOrOwner ? 6 : 5} className="px-4 py-4 bg-muted/50 border-b">
-                              <div className="space-y-3">
+                              <div className="space-y-4">
                                 <div>
                                   <label className="block text-xs font-medium text-muted-foreground mb-1">
                                     Instructions — tell this agent what to focus on when it runs
@@ -840,21 +851,37 @@ export default function AgentsPage() {
                                   <textarea
                                     className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
                                     rows={3}
-                                    placeholder="e.g. Search for the latest NIST CSF updates and check our SOC 2 compliance gaps. Focus on access control and encryption requirements."
+                                    placeholder='e.g. "Implement all GRC for orthopedic surgery center following US law requirements. Find applicable frameworks and ensure compliance is up to date."'
                                     value={editValue}
                                     onClick={(e) => e.stopPropagation()}
                                     onChange={(e) => setEditingInstructions((prev) => ({ ...prev, [agent.id]: e.target.value }))}
                                     disabled={!isAdminOrOwner}
                                   />
                                 </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                                    Schedule — how often should this agent run?
+                                  </label>
+                                  <select
+                                    className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    value={scheduleValue}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => setEditingSchedule((prev) => ({ ...prev, [agent.id]: e.target.value }))}
+                                    disabled={!isAdminOrOwner}
+                                  >
+                                    {Object.entries(SCHEDULE_LABELS).map(([val, label]) => (
+                                      <option key={val} value={val}>{label}</option>
+                                    ))}
+                                  </select>
+                                </div>
                                 {isAdminOrOwner && (
                                   <div className="flex items-center gap-2">
                                     <button
-                                      onClick={(e) => { e.stopPropagation(); handleSaveInstructions(agent); }}
-                                      disabled={!hasChanges || savingInstructionsId === agent.id}
+                                      onClick={(e) => { e.stopPropagation(); handleSaveAgent(agent); }}
+                                      disabled={!hasChanges || savingAgentId === agent.id}
                                       className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:opacity-90 disabled:opacity-40 font-medium"
                                     >
-                                      {savingInstructionsId === agent.id ? "Saving…" : "Save Instructions"}
+                                      {savingAgentId === agent.id ? "Saving…" : "Save Changes"}
                                     </button>
                                     {hasChanges && <span className="text-xs text-muted-foreground">Unsaved changes</span>}
                                     {!hasChanges && currentInstructions && <span className="text-xs text-green-600">Saved</span>}
