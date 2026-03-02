@@ -63,6 +63,20 @@ export const SKILL_CATALOG: Skill[] = [
     requiresApproval: true,
     category: "write",
   },
+  {
+    id: "create_control",
+    name: "Create Control",
+    description: "Create new security controls in the control library",
+    requiresApproval: true,
+    category: "write",
+  },
+  {
+    id: "create_evidence",
+    name: "Create Evidence",
+    description: "Log evidence artifacts for compliance and audit purposes",
+    requiresApproval: true,
+    category: "write",
+  },
 ];
 
 export const SKILL_MAP = Object.fromEntries(SKILL_CATALOG.map((s) => [s.id, s])) as Record<string, Skill>;

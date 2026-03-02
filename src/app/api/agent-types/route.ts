@@ -51,6 +51,21 @@ export async function GET(_request: NextRequest) {
         .select()
         .single();
       if (newType) types = [newType];
+    } else {
+      // Auto-upgrade default type to include any new skills added to the catalog
+      const allSkillIds = SKILL_CATALOG.map((s) => s.id);
+      const defaultType = types.find((t: { is_default: boolean }) => t.is_default);
+      if (defaultType) {
+        const currentSkills: string[] = Array.isArray(defaultType.skills) ? defaultType.skills : [];
+        const missingSkills = allSkillIds.filter((s) => !currentSkills.includes(s));
+        if (missingSkills.length > 0) {
+          await admin
+            .from("agent_types")
+            .update({ skills: allSkillIds })
+            .eq("id", defaultType.id);
+          defaultType.skills = allSkillIds;
+        }
+      }
     }
 
     return Response.json({ agent_types: types });

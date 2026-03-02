@@ -119,7 +119,7 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main content */}
-      <main className={`flex-1 overflow-auto ${showOnboarding ? "pointer-events-none select-none" : ""}`}>
+      <main className={`flex-1 min-w-0 overflow-auto ${showOnboarding ? "pointer-events-none select-none" : ""}`}>
         <div className="p-8">{children}</div>
       </main>
 

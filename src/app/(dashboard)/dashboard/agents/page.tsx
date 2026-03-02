@@ -585,7 +585,7 @@ export default function AgentsPage() {
   // Still loading usage status
   if (!usageLoaded) {
     return (
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="max-w-full">
         <h1 className="text-2xl font-bold text-foreground mb-2">Agents</h1>
         <p className="text-sm text-muted-foreground py-12 text-center">Loading…</p>
       </div>
@@ -593,7 +593,7 @@ export default function AgentsPage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="max-w-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -752,16 +752,16 @@ export default function AgentsPage() {
             </div>
           )}
           {!loadingAgents && agents.length > 0 && (
-            <div className="bg-card border rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="bg-card border rounded-xl overflow-x-auto">
+              <table className="w-full text-sm min-w-[700px]">
                 <thead className="bg-muted/50 border-b">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Agent</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Schedule</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Last Run</th>
-                    {isAdminOrOwner && <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>}
+                    <th className="px-3 py-3 text-left font-medium text-muted-foreground">Agent</th>
+                    <th className="px-3 py-3 text-left font-medium text-muted-foreground">Type</th>
+                    <th className="px-3 py-3 text-left font-medium text-muted-foreground">Schedule</th>
+                    <th className="px-3 py-3 text-left font-medium text-muted-foreground">Status</th>
+                    <th className="px-3 py-3 text-left font-medium text-muted-foreground">Last Run</th>
+                    {isAdminOrOwner && <th className="px-3 py-3 text-right font-medium text-muted-foreground">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -792,28 +792,28 @@ export default function AgentsPage() {
                             });
                           }}
                         >
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-3">
                             <div className="font-medium text-foreground">{agent.name}</div>
-                            {agent.description && <div className="text-xs text-muted-foreground mt-0.5">{agent.description}</div>}
+                            {agent.description && <div className="text-xs text-muted-foreground mt-0.5 truncate max-w-[200px]">{agent.description}</div>}
                             {currentInstructions && (
-                              <div className="text-xs text-primary/70 mt-0.5 truncate max-w-xs" title={currentInstructions}>
-                                Instructions: {currentInstructions.slice(0, 60)}{currentInstructions.length > 60 ? "…" : ""}
+                              <div className="text-xs text-primary/70 mt-0.5 truncate max-w-[200px]" title={currentInstructions}>
+                                Instructions: {currentInstructions.slice(0, 50)}{currentInstructions.length > 50 ? "…" : ""}
                               </div>
                             )}
                             {actionErrors[agent.id] && <div className="text-xs text-red-600 mt-1">{actionErrors[agent.id]}</div>}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-3">
                             <div className="text-foreground">{agent.agent_type?.name ?? "—"}</div>
                             <div className="flex flex-wrap mt-1">
-                              {(agent.agent_type?.skills ?? []).slice(0, 3).map((s) => <SkillChip key={s} skillId={s} />)}
-                              {(agent.agent_type?.skills ?? []).length > 3 && <span className="text-xs text-muted-foreground">+{(agent.agent_type?.skills ?? []).length - 3}</span>}
+                              {(agent.agent_type?.skills ?? []).slice(0, 2).map((s) => <SkillChip key={s} skillId={s} />)}
+                              {(agent.agent_type?.skills ?? []).length > 2 && <span className="text-xs text-muted-foreground">+{(agent.agent_type?.skills ?? []).length - 2}</span>}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">{SCHEDULE_LABELS[agent.schedule] ?? agent.schedule}</td>
-                          <td className="px-4 py-3"><AgentStatusBadge status={agent.status} /></td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs">{formatDate(agent.last_run_at)}</td>
+                          <td className="px-3 py-3 text-muted-foreground whitespace-nowrap">{SCHEDULE_LABELS[agent.schedule] ?? agent.schedule}</td>
+                          <td className="px-3 py-3"><AgentStatusBadge status={agent.status} /></td>
+                          <td className="px-3 py-3 text-muted-foreground text-xs whitespace-nowrap">{formatDate(agent.last_run_at)}</td>
                           {isAdminOrOwner && (
-                            <td className="px-4 py-3">
+                            <td className="px-3 py-3">
                               <div className="flex items-center justify-end gap-2">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleRunAgent(agent); }}
@@ -918,8 +918,8 @@ export default function AgentsPage() {
             </div>
           )}
           {!loadingTypes && agentTypes.length > 0 && (
-            <div className="bg-card border rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="bg-card border rounded-xl overflow-x-auto">
+              <table className="w-full text-sm min-w-[500px]">
                 <thead className="bg-muted/50 border-b">
                   <tr>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
@@ -1012,8 +1012,8 @@ export default function AgentsPage() {
             </div>
           )}
           {!loadingTasks && filteredTasks.length > 0 && (
-            <div className="bg-card border rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="bg-card border rounded-xl overflow-x-auto">
+              <table className="w-full text-sm min-w-[700px]">
                 <thead className="bg-muted/50 border-b">
                   <tr>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Task</th>

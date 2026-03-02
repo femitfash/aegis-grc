@@ -3,7 +3,7 @@ import { createAdminClient } from "@/shared/lib/supabase/admin";
 import { logAudit } from "@/shared/lib/audit";
 import { SKILL_MAP } from "./skills";
 
-const WRITE_SKILLS = new Set(["create_risk", "create_incident", "create_policy", "update_requirement"]);
+const WRITE_SKILLS = new Set(["create_risk", "create_incident", "create_policy", "update_requirement", "create_control", "create_evidence"]);
 
 // ─── Schedule helpers ────────────────────────────────────────────────────────
 
@@ -167,6 +167,43 @@ function buildToolDefinitions(skillIds: string[]): Anthropic.Tool[] {
           },
         });
         break;
+
+      case "create_control":
+        tools.push({
+          name: "create_control",
+          description: "Propose creating a new security control in the control library (requires user approval)",
+          input_schema: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "Control title" },
+              description: { type: "string", description: "Detailed control description" },
+              control_type: { type: "string", enum: ["technical", "administrative", "physical"], description: "Type of control" },
+              automation_level: { type: "string", enum: ["automated", "semi-automated", "manual"], description: "Automation level" },
+              effectiveness_rating: { type: "number", description: "Effectiveness rating 1-5" },
+              frameworks: { type: "array", items: { type: "string" }, description: "Applicable framework codes (e.g. SOC2, ISO27001)" },
+            },
+            required: ["title", "description"],
+          },
+        });
+        break;
+
+      case "create_evidence":
+        tools.push({
+          name: "create_evidence",
+          description: "Propose logging an evidence artifact for compliance tracking (requires user approval)",
+          input_schema: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "Evidence title" },
+              description: { type: "string", description: "What this evidence demonstrates" },
+              source_type: { type: "string", enum: ["manual", "automated", "scan", "audit", "external"], description: "Source of the evidence" },
+              control_code: { type: "string", description: "Related control code (e.g. CTRL-XXX)" },
+              frameworks: { type: "array", items: { type: "string" }, description: "Applicable framework codes" },
+            },
+            required: ["title", "description"],
+          },
+        });
+        break;
     }
   }
 
@@ -326,6 +363,7 @@ export async function runAgent(agentId: string, organizationId: string): Promise
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const tools = buildToolDefinitions(skillIds);
   const tasksCreated: number[] = [];
+  let writeTasksCreated = 0;
 
   async function createTask(params: {
     title: string;
@@ -362,6 +400,8 @@ export async function runAgent(agentId: string, organizationId: string): Promise
   const agentConfig = (agent.config ?? {}) as Record<string, unknown>;
   const instructions = typeof agentConfig.instructions === "string" ? agentConfig.instructions.trim() : "";
 
+  const hasWriteSkills = skillIds.some((s) => WRITE_SKILLS.has(s));
+
   const systemPrompt = `You are ${agent.name}, a GRC (Governance, Risk & Compliance) agent for an organization.
 Your job: ${agent.description || agentType.name}
 Your allowed skills: ${skillIds.join(", ")}
@@ -370,9 +410,9 @@ ${instructions ? `\nUser Instructions:\n${instructions}\n` : ""}
 Rules:
 - Only use the tools provided to you — no other actions
 - Be concise and focused on GRC tasks
-- For write tools (create_risk, create_incident, etc.), only propose actions that are clearly justified by your research
-- Limit yourself to 1-3 tool calls per run
-${instructions ? "- Follow the user instructions above as your primary directive" : ""}`;
+- For write tools (create_risk, create_incident, create_control, create_policy, create_evidence, update_requirement): these will be queued for the user to review and approve before executing
+${hasWriteSkills ? "- IMPORTANT: You MUST use your write tools to create concrete artifacts (risks, controls, policies, incidents, evidence). Do NOT stop at just reading/analyzing — always follow up research with write actions. For example, after a compliance check, create any missing controls or policies. After risk analysis, create risks you identified." : ""}
+${instructions ? "- Follow the user instructions above as your primary directive. Take action — create risks, controls, policies, evidence, and incidents as needed to fulfill the instructions." : ""}`;
 
   const userMessage = instructions
     ? `Run your tasks now. Follow these instructions: ${instructions}`
@@ -381,9 +421,9 @@ ${instructions ? "- Follow the user instructions above as your primary directive
   type MessageParam = Anthropic.MessageParam;
   const messages: MessageParam[] = [{ role: "user", content: userMessage }];
 
-  // 4. Agentic loop (max 3 iterations)
+  // 4. Agentic loop (max 5 iterations to allow research + write actions)
   let iterations = 0;
-  const MAX_ITERATIONS = 3;
+  const MAX_ITERATIONS = 5;
 
   while (iterations < MAX_ITERATIONS) {
     iterations++;
@@ -421,6 +461,7 @@ ${instructions ? "- Follow the user instructions above as your primary directive
           status: "pending_approval",
           result: input,
         });
+        writeTasksCreated++;
 
         toolResults.push({
           type: "tool_result",
@@ -460,6 +501,93 @@ ${instructions ? "- Follow the user instructions above as your primary directive
     }
 
     messages.push({ role: "user", content: toolResults });
+  }
+
+  // 4b. Follow-up phase: if the agent only did reads, push it to create write artifacts
+  if (hasWriteSkills && writeTasksCreated === 0 && tasksCreated.length > 0) {
+    const writeSkillNames = skillIds.filter((s) => WRITE_SKILLS.has(s));
+    const followUp = `You completed your research phase. Now you MUST create concrete GRC artifacts based on your findings. Use these write tools: ${writeSkillNames.join(", ")}.
+
+Based on your research, create at least:
+- Relevant risks (use create_risk)
+- Relevant controls to mitigate those risks (use create_control)
+- Relevant policies (use create_policy)
+${writeSkillNames.includes("create_evidence") ? "- Evidence items documenting your findings (use create_evidence)" : ""}
+${writeSkillNames.includes("create_incident") ? "- Any incidents discovered (use create_incident)" : ""}
+
+Do NOT respond with text only. You MUST call the write tools now.`;
+
+    messages.push({ role: "user", content: followUp });
+
+    // Run up to 3 more iterations for write actions
+    let writeIterations = 0;
+    while (writeIterations < 3) {
+      writeIterations++;
+
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        system: systemPrompt,
+        tools,
+        messages,
+      });
+
+      messages.push({ role: "assistant", content: response.content });
+
+      if (response.stop_reason !== "tool_use") break;
+
+      const toolResults: Anthropic.ToolResultBlockParam[] = [];
+
+      for (const block of response.content) {
+        if (block.type !== "tool_use") continue;
+
+        const toolUse = block as Anthropic.ToolUseBlock;
+        const input = toolUse.input as Record<string, unknown>;
+        const skill = getSkillMeta(toolUse.name);
+
+        if (WRITE_SKILLS.has(toolUse.name)) {
+          await createTask({
+            title: buildWriteTaskTitle(toolUse.name, input),
+            description: JSON.stringify(input, null, 2),
+            skillUsed: toolUse.name,
+            actionType: "write",
+            status: "pending_approval",
+            result: input,
+          });
+          writeTasksCreated++;
+
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: toolUse.id,
+            content: JSON.stringify({ status: "queued_for_approval", message: "Queued for user approval." }),
+          });
+        } else {
+          let result: object = {};
+          try {
+            result = await executeReadSkill(toolUse.name, input, organizationId);
+          } catch (err) {
+            result = { error: err instanceof Error ? err.message : String(err) };
+          }
+
+          await createTask({
+            title: `${skill?.name ?? toolUse.name}: ${buildReadTaskTitle(toolUse.name, input)}`,
+            description: `Agent executed ${toolUse.name}`,
+            skillUsed: toolUse.name,
+            actionType: "read",
+            status: "completed",
+            result,
+          });
+
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: toolUse.id,
+            content: JSON.stringify(result),
+          });
+        }
+      }
+
+      messages.push({ role: "user", content: toolResults });
+    }
   }
 
   // 5. Update agent timestamps
@@ -517,6 +645,10 @@ function buildWriteTaskTitle(skillId: string, input: Record<string, unknown>): s
       return `Create Incident: ${input.title ?? "Untitled"} (${input.severity ?? "unknown"} severity)`;
     case "create_policy":
       return `Create Policy: ${input.title ?? "Untitled"}`;
+    case "create_control":
+      return `Create Control: ${input.title ?? "Untitled"} (${input.control_type ?? "technical"})`;
+    case "create_evidence":
+      return `Create Evidence: ${input.title ?? "Untitled"}`;
     case "update_requirement":
       return `Update Requirement: ${input.framework_code}/${input.requirement_id} → ${input.new_status}`;
     default:

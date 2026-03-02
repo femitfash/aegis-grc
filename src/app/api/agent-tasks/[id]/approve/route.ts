@@ -162,6 +162,45 @@ async function executeApprovedAction(
       break;
     }
 
+    case "create_control": {
+      const ctrlCode = `CTRL-${Date.now().toString(36).toUpperCase()}`;
+      const { error } = await admin.from("control_library").insert({
+        organization_id: organizationId,
+        code: ctrlCode,
+        title: payload.title,
+        description: payload.description ?? "",
+        control_type: payload.control_type ?? "technical",
+        automation_level: payload.automation_level ?? "manual",
+        effectiveness_rating: Math.min(5, Math.max(1, Number(payload.effectiveness_rating) || 3)),
+        status: "draft",
+        metadata: { frameworks: Array.isArray(payload.frameworks) ? payload.frameworks : [] },
+        owner_id: userId,
+      });
+      if (error) throw new Error(error.message);
+      break;
+    }
+
+    case "create_evidence": {
+      const evdId = `EVD-${Date.now().toString(36).toUpperCase()}`;
+      const { error } = await admin.from("evidence").insert({
+        organization_id: organizationId,
+        evidence_id: evdId,
+        title: payload.title,
+        description: payload.description ?? "",
+        source_type: payload.source_type ?? "manual",
+        source_metadata: {},
+        metadata: {
+          frameworks: Array.isArray(payload.frameworks) ? payload.frameworks : [],
+          control_code: payload.control_code ?? null,
+        },
+        created_by: userId,
+        collected_at: new Date().toISOString(),
+        status: "pending",
+      });
+      if (error) throw new Error(error.message);
+      break;
+    }
+
     default:
       throw new Error(`Unknown write skill: ${skillId}`);
   }
