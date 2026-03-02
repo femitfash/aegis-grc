@@ -193,7 +193,7 @@ function NewAgentTypeModal({ onClose, onCreated }: { onClose: () => void; onCrea
 }
 
 function NewAgentModal({ agentTypes, onClose, onCreated }: { agentTypes: AgentType[]; onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ name: "", description: "", agent_type_id: "", schedule: "manual", config: "" });
+  const [form, setForm] = useState({ name: "", description: "", agent_type_id: "", schedule: "manual", instructions: "", config: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -215,7 +215,7 @@ function NewAgentModal({ agentTypes, onClose, onCreated }: { agentTypes: AgentTy
       const res = await fetch("/api/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name, description: form.description, agent_type_id: form.agent_type_id, schedule: form.schedule, config }),
+        body: JSON.stringify({ name: form.name, description: form.description, agent_type_id: form.agent_type_id, schedule: form.schedule, config: { ...config, ...(form.instructions.trim() ? { instructions: form.instructions.trim() } : {}) } }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create");
@@ -289,6 +289,17 @@ function NewAgentModal({ agentTypes, onClose, onCreated }: { agentTypes: AgentTy
             </select>
           </div>
           <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Instructions</label>
+            <textarea
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+              rows={3}
+              placeholder="e.g. Search for the latest NIST CSF updates and check our SOC 2 compliance gaps. Focus on access control."
+              value={form.instructions}
+              onChange={(e) => setForm((f) => ({ ...f, instructions: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground mt-1">Tell the agent what to focus on when it runs</p>
+          </div>
+          <div>
             <label className="block text-sm font-medium text-foreground mb-1">Custom Config (optional)</label>
             <textarea
               className="w-full border rounded-lg px-3 py-2 text-sm bg-background font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
@@ -347,7 +358,8 @@ export default function AgentsPage() {
   const [showNewType, setShowNewType] = useState(false);
   const [showNewAgent, setShowNewAgent] = useState(false);
 
-  // Expanded task row
+  // Expanded rows
+  const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
 
   // Task filters
@@ -362,6 +374,8 @@ export default function AgentsPage() {
   const [approvingTaskId, setApprovingTaskId] = useState<string | null>(null);
   const [decliningTaskId, setDecliningTaskId] = useState<string | null>(null);
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
+  const [editingInstructions, setEditingInstructions] = useState<Record<string, string>>({});
+  const [savingInstructionsId, setSavingInstructionsId] = useState<string | null>(null);
 
   const isAdminOrOwner = userRole === null || userRole === "owner" || userRole === "admin";
   const canCreateAgents = plan === "enterprise";
@@ -486,6 +500,25 @@ export default function AgentsPage() {
       setActionErrors((e) => ({ ...e, [agent.id]: err instanceof Error ? err.message : "Failed" }));
     } finally {
       setDeletingAgentId(null);
+    }
+  };
+
+  const handleSaveInstructions = async (agent: Agent) => {
+    setSavingInstructionsId(agent.id);
+    setActionErrors((e) => ({ ...e, [agent.id]: "" }));
+    try {
+      const instructions = editingInstructions[agent.id] ?? "";
+      const res = await fetch(`/api/agents/${agent.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config: { ...agent.config, instructions } }),
+      });
+      if (!res.ok) { const d = await res.json() as { error?: string }; throw new Error(d.error); }
+      await fetchAgents();
+    } catch (err) {
+      setActionErrors((e) => ({ ...e, [agent.id]: err instanceof Error ? err.message : "Failed to save" }));
+    } finally {
+      setSavingInstructionsId(null);
     }
   };
 
@@ -637,7 +670,7 @@ export default function AgentsPage() {
                       body: JSON.stringify({ type: "action_pack" }),
                     });
                     const data = await res.json();
-                    if (data.url) window.open(data.url, "_blank");
+                    if (data.url) window.location.href = data.url;
                   }}
                   className="text-xs px-3 py-1.5 rounded-md border border-border bg-background hover:bg-accent transition-colors font-medium"
                 >
@@ -651,7 +684,7 @@ export default function AgentsPage() {
                       body: JSON.stringify({ type: "unlimited" }),
                     });
                     const data = await res.json();
-                    if (data.url) window.open(data.url, "_blank");
+                    if (data.url) window.location.href = data.url;
                   }}
                   className="text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
                 >
@@ -727,52 +760,117 @@ export default function AgentsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {agents.map((agent) => (
-                    <tr key={agent.id} className="hover:bg-muted/50">
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-foreground">{agent.name}</div>
-                        {agent.description && <div className="text-xs text-muted-foreground mt-0.5">{agent.description}</div>}
-                        {actionErrors[agent.id] && <div className="text-xs text-red-600 mt-1">{actionErrors[agent.id]}</div>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-foreground">{agent.agent_type?.name ?? "—"}</div>
-                        <div className="flex flex-wrap mt-1">
-                          {(agent.agent_type?.skills ?? []).slice(0, 3).map((s) => <SkillChip key={s} skillId={s} />)}
-                          {(agent.agent_type?.skills ?? []).length > 3 && <span className="text-xs text-muted-foreground">+{(agent.agent_type?.skills ?? []).length - 3}</span>}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{SCHEDULE_LABELS[agent.schedule] ?? agent.schedule}</td>
-                      <td className="px-4 py-3"><AgentStatusBadge status={agent.status} /></td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs">{formatDate(agent.last_run_at)}</td>
-                      {isAdminOrOwner && (
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleRunAgent(agent)}
-                              disabled={runningAgentId === agent.id || agent.status !== "active"}
-                              className="px-2.5 py-1 text-xs border rounded-md hover:bg-muted disabled:opacity-40"
-                            >
-                              {runningAgentId === agent.id ? "Running…" : "▶ Run"}
-                            </button>
-                            <button
-                              onClick={() => handleToggleStatus(agent)}
-                              disabled={togglingAgentId === agent.id}
-                              className="px-2.5 py-1 text-xs border rounded-md hover:bg-muted disabled:opacity-40"
-                            >
-                              {togglingAgentId === agent.id ? "…" : agent.status === "active" ? "Suspend" : "Activate"}
-                            </button>
-                            <button
-                              onClick={() => handleDeleteAgent(agent)}
-                              disabled={deletingAgentId === agent.id}
-                              className="px-2.5 py-1 text-xs border border-red-200 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-40"
-                            >
-                              {deletingAgentId === agent.id ? "…" : "Delete"}
-                            </button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
+                  {agents.map((agent) => {
+                    const currentInstructions = (agent.config?.instructions as string) ?? "";
+                    const isExpanded = expandedAgentId === agent.id;
+                    const editValue = editingInstructions[agent.id] ?? currentInstructions;
+                    const hasChanges = editValue !== currentInstructions;
+
+                    return (
+                      <>
+                        <tr
+                          key={agent.id}
+                          className={`hover:bg-muted/50 cursor-pointer ${isExpanded ? "bg-primary/5" : ""}`}
+                          onClick={() => {
+                            setExpandedAgentId((prev) => {
+                              const next = prev === agent.id ? null : agent.id;
+                              if (next && !(agent.id in editingInstructions)) {
+                                setEditingInstructions((e) => ({ ...e, [agent.id]: currentInstructions }));
+                              }
+                              return next;
+                            });
+                          }}
+                        >
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-foreground">{agent.name}</div>
+                            {agent.description && <div className="text-xs text-muted-foreground mt-0.5">{agent.description}</div>}
+                            {currentInstructions && (
+                              <div className="text-xs text-primary/70 mt-0.5 truncate max-w-xs" title={currentInstructions}>
+                                Instructions: {currentInstructions.slice(0, 60)}{currentInstructions.length > 60 ? "…" : ""}
+                              </div>
+                            )}
+                            {actionErrors[agent.id] && <div className="text-xs text-red-600 mt-1">{actionErrors[agent.id]}</div>}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-foreground">{agent.agent_type?.name ?? "—"}</div>
+                            <div className="flex flex-wrap mt-1">
+                              {(agent.agent_type?.skills ?? []).slice(0, 3).map((s) => <SkillChip key={s} skillId={s} />)}
+                              {(agent.agent_type?.skills ?? []).length > 3 && <span className="text-xs text-muted-foreground">+{(agent.agent_type?.skills ?? []).length - 3}</span>}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">{SCHEDULE_LABELS[agent.schedule] ?? agent.schedule}</td>
+                          <td className="px-4 py-3"><AgentStatusBadge status={agent.status} /></td>
+                          <td className="px-4 py-3 text-muted-foreground text-xs">{formatDate(agent.last_run_at)}</td>
+                          {isAdminOrOwner && (
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleRunAgent(agent); }}
+                                  disabled={runningAgentId === agent.id || agent.status !== "active"}
+                                  className="px-2.5 py-1 text-xs border rounded-md hover:bg-muted disabled:opacity-40"
+                                >
+                                  {runningAgentId === agent.id ? "Running…" : "▶ Run"}
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleToggleStatus(agent); }}
+                                  disabled={togglingAgentId === agent.id}
+                                  className="px-2.5 py-1 text-xs border rounded-md hover:bg-muted disabled:opacity-40"
+                                >
+                                  {togglingAgentId === agent.id ? "…" : agent.status === "active" ? "Suspend" : "Activate"}
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteAgent(agent); }}
+                                  disabled={deletingAgentId === agent.id}
+                                  className="px-2.5 py-1 text-xs border border-red-200 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-40"
+                                >
+                                  {deletingAgentId === agent.id ? "…" : "Delete"}
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                        {isExpanded && (
+                          <tr key={`${agent.id}-detail`}>
+                            <td colSpan={isAdminOrOwner ? 6 : 5} className="px-4 py-4 bg-muted/50 border-b">
+                              <div className="space-y-3">
+                                <div>
+                                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                                    Instructions — tell this agent what to focus on when it runs
+                                  </label>
+                                  <textarea
+                                    className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                                    rows={3}
+                                    placeholder="e.g. Search for the latest NIST CSF updates and check our SOC 2 compliance gaps. Focus on access control and encryption requirements."
+                                    value={editValue}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => setEditingInstructions((prev) => ({ ...prev, [agent.id]: e.target.value }))}
+                                    disabled={!isAdminOrOwner}
+                                  />
+                                </div>
+                                {isAdminOrOwner && (
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleSaveInstructions(agent); }}
+                                      disabled={!hasChanges || savingInstructionsId === agent.id}
+                                      className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:opacity-90 disabled:opacity-40 font-medium"
+                                    >
+                                      {savingInstructionsId === agent.id ? "Saving…" : "Save Instructions"}
+                                    </button>
+                                    {hasChanges && <span className="text-xs text-muted-foreground">Unsaved changes</span>}
+                                    {!hasChanges && currentInstructions && <span className="text-xs text-green-600">Saved</span>}
+                                  </div>
+                                )}
+                                <div className="flex flex-wrap gap-1 pt-1">
+                                  <span className="text-xs text-muted-foreground mr-1">Skills:</span>
+                                  {(agent.agent_type?.skills ?? []).map((s) => <SkillChip key={s} skillId={s} />)}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

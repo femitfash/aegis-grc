@@ -405,22 +405,6 @@ export function CopilotPanel({ onClose, context, onFirstMessage, highlightPrompt
         </div>
       </div>
 
-      {/* Quick prompts strip */}
-      <div className="flex gap-2 overflow-x-auto px-4 py-2 border-b scrollbar-none">
-        {SUGGESTION_CHIPS.map((chip) => (
-          <button
-            key={chip.label}
-            onClick={() => {
-              setInput(chip.prompt);
-              inputRef.current?.focus();
-            }}
-            className="shrink-0 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[11px] font-medium text-primary hover:bg-primary/10 hover:border-primary/40 transition-colors"
-          >
-            {chip.label}
-          </button>
-        ))}
-      </div>
-
       {/* Messages */}
       <div className="flex-1 overflow-auto p-4 space-y-4">
         {messages.map((message) => (

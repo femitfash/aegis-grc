@@ -79,16 +79,31 @@ export async function POST(request: NextRequest) {
         return Response.json({ error: "Agent action pack price not configured" }, { status: 503 });
       }
 
-      const session = await stripe.checkout.sessions.create({
-        customer: customerId,
-        mode: "payment",
-        line_items: [{ price: priceId, quantity: 1 }],
-        success_url: `${appUrl}/dashboard/agents?purchased=actions`,
-        cancel_url: `${appUrl}/dashboard/agents`,
-        metadata: { organization_id: organizationId, type: "agent_action_pack" },
-      });
-
-      return Response.json({ url: session.url });
+      // Try one-time payment first; if the price is recurring, fall back to subscription mode
+      try {
+        const session = await stripe.checkout.sessions.create({
+          customer: customerId,
+          mode: "payment",
+          line_items: [{ price: priceId, quantity: 1 }],
+          success_url: `${appUrl}/dashboard/agents?purchased=actions`,
+          cancel_url: `${appUrl}/dashboard/agents`,
+          metadata: { organization_id: organizationId, type: "agent_action_pack" },
+        });
+        return Response.json({ url: session.url });
+      } catch {
+        // Price is likely recurring — use subscription mode instead
+        const session = await stripe.checkout.sessions.create({
+          customer: customerId,
+          mode: "subscription",
+          line_items: [{ price: priceId, quantity: 1 }],
+          success_url: `${appUrl}/dashboard/agents?purchased=actions`,
+          cancel_url: `${appUrl}/dashboard/agents`,
+          subscription_data: {
+            metadata: { organization_id: organizationId, type: "agent_action_pack" },
+          },
+        });
+        return Response.json({ url: session.url });
+      }
     }
 
     // type === "unlimited"

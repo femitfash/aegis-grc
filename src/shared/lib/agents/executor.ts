@@ -359,18 +359,24 @@ export async function runAgent(agentId: string, organizationId: string): Promise
   }
 
   // 3. Build Claude messages
+  const agentConfig = (agent.config ?? {}) as Record<string, unknown>;
+  const instructions = typeof agentConfig.instructions === "string" ? agentConfig.instructions.trim() : "";
+
   const systemPrompt = `You are ${agent.name}, a GRC (Governance, Risk & Compliance) agent for an organization.
 Your job: ${agent.description || agentType.name}
 Your allowed skills: ${skillIds.join(", ")}
 Agent config: ${JSON.stringify(agent.config)}
-
+${instructions ? `\nUser Instructions:\n${instructions}\n` : ""}
 Rules:
 - Only use the tools provided to you — no other actions
 - Be concise and focused on GRC tasks
 - For write tools (create_risk, create_incident, etc.), only propose actions that are clearly justified by your research
-- Limit yourself to 1-3 tool calls per run`;
+- Limit yourself to 1-3 tool calls per run
+${instructions ? "- Follow the user instructions above as your primary directive" : ""}`;
 
-  const userMessage = `Run your scheduled tasks now. Use your skills to complete your mission based on your configuration.`;
+  const userMessage = instructions
+    ? `Run your tasks now. Follow these instructions: ${instructions}`
+    : `Run your scheduled tasks now. Use your skills to complete your mission based on your configuration.`;
 
   type MessageParam = Anthropic.MessageParam;
   const messages: MessageParam[] = [{ role: "user", content: userMessage }];
