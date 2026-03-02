@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CheckCircle, ChevronDown, Minus, Plus } from "lucide-react";
 import { ContactButton } from "./contact-button";
+import { AlertModal } from "@/shared/components/modals";
 
 // Display prices in dollars
 const P = {
@@ -61,6 +62,7 @@ export function PricingSection() {
   const [annual, setAnnual] = useState(true);
   const [contributors, setContributors] = useState(2);
   const [readOnly, setReadOnly] = useState(0);
+  const [alertModal, setAlertModal] = useState<{ title: string; message: string } | null>(null);
 
   const cp = annual ? P.contributor_annual : P.contributor_monthly;
   const rp = annual ? P.readonly_annual : P.readonly_monthly;
@@ -82,10 +84,11 @@ export function PricingSection() {
     }
     const data = await res.json();
     if (data.url) window.open(data.url, "_blank");
-    else if (data.error) alert(data.error);
+    else if (data.error) setAlertModal({ title: "Checkout Error", message: data.error });
   }
 
   return (
+    <>
     <section id="pricing" className="bg-muted/20 px-6 py-24">
       <div className="mx-auto max-w-6xl text-center">
         <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
@@ -396,5 +399,9 @@ export function PricingSection() {
         </div>
       </div>
     </section>
+    {alertModal && (
+      <AlertModal title={alertModal.title} message={alertModal.message} onClose={() => setAlertModal(null)} />
+    )}
+    </>
   );
 }

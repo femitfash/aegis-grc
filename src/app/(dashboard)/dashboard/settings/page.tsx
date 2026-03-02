@@ -181,6 +181,7 @@ function SettingsPageInner() {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [changingRoleId, setChangingRoleId] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog>(CLOSED_DIALOG);
+  const [alertModal, setAlertModal] = useState<{ title: string; message: string } | null>(null);
 
   // Billing
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -468,9 +469,9 @@ function SettingsPageInner() {
       const res = await fetch("/api/billing/portal", { method: "POST" });
       const data = await res.json();
       if (data.url) window.location.href = data.url;
-      else alert(data.error || "Billing portal unavailable");
+      else setAlertModal({ title: "Error", message: data.error || "Billing portal unavailable" });
     } catch {
-      alert("Could not open billing portal");
+      setAlertModal({ title: "Error", message: "Could not open billing portal" });
     } finally {
       setPortalLoading(false);
     }
@@ -494,10 +495,10 @@ function SettingsPageInner() {
       if (data.url) {
         window.open(data.url, "_blank");
       } else {
-        alert(data.error || `Checkout failed (HTTP ${res.status}). Please contact support@fastgrc.ai.`);
+        setAlertModal({ title: "Checkout Error", message: data.error || `Checkout failed (HTTP ${res.status}). Please contact support@fastgrc.ai.` });
       }
     } catch (err) {
-      alert(`Could not reach the billing service. ${err instanceof Error ? err.message : ""} Please try again or contact support@fastgrc.ai.`);
+      setAlertModal({ title: "Error", message: `Could not reach the billing service. ${err instanceof Error ? err.message : ""} Please try again or contact support@fastgrc.ai.` });
     } finally {
       setUpgradeLoading(false);
     }
@@ -1522,17 +1523,51 @@ function SettingsPageInner() {
                           </span>
                         )}
                       </span>
-                      {!agentUsage.hasUnlimitedPlan && (
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          !agentUsage.allowed ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
-                          agentUsage.freeActionsRemaining <= 3 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" :
-                          "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                        }`}>
-                          {!agentUsage.allowed ? "Limit reached" :
-                           agentUsage.trialExpired ? `${agentUsage.creditsRemaining} credits left` :
-                           `${agentUsage.trialDaysRemaining}d trial remaining`}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {agentUsage.hasUnlimitedPlan && (
+                          <button
+                            onClick={() => {
+                              setConfirmDialog({
+                                open: true,
+                                title: "Cancel Agent Unlimited",
+                                message: "Your unlimited agent actions will remain active until the end of the current billing period. After that, you'll revert to pay-as-you-go pricing.",
+                                irreversible: false,
+                                confirmLabel: "Cancel Plan",
+                                variant: "warning",
+                                onConfirm: async () => {
+                                  setConfirmDialog(CLOSED_DIALOG);
+                                  try {
+                                    const res = await fetch("/api/billing/agent-cancel", { method: "POST" });
+                                    const data = await res.json();
+                                    if (!res.ok) throw new Error(data.error ?? "Failed to cancel");
+                                    setAlertModal({ title: "Plan Canceled", message: data.message ?? "Agent unlimited plan will cancel at the end of the billing period." });
+                                    // Refresh usage
+                                    const usageRes = await fetch("/api/settings/agent-usage");
+                                    const usage = await usageRes.json();
+                                    setAgentUsage(usage);
+                                  } catch (err) {
+                                    setAlertModal({ title: "Error", message: err instanceof Error ? err.message : "Could not cancel agent plan" });
+                                  }
+                                },
+                              });
+                            }}
+                            className="rounded-md border border-border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                          >
+                            Cancel Plan
+                          </button>
+                        )}
+                        {!agentUsage.hasUnlimitedPlan && (
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            !agentUsage.allowed ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+                            agentUsage.freeActionsRemaining <= 3 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                            "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                          }`}>
+                            {!agentUsage.allowed ? "Limit reached" :
+                             agentUsage.trialExpired ? `${agentUsage.creditsRemaining} credits left` :
+                             `${agentUsage.trialDaysRemaining}d trial remaining`}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     {!agentUsage.hasUnlimitedPlan && (
                       <>
@@ -1683,6 +1718,23 @@ function SettingsPageInner() {
                 }`}
               >
                 {confirmDialog.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Alert modal (replaces browser alert) ─────────────────────────── */}
+      {alertModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setAlertModal(null)}>
+          <div className="w-full max-w-sm rounded-xl border bg-card shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 pt-6 pb-5">
+              <h3 className="text-base font-semibold">{alertModal.title}</h3>
+              <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{alertModal.message}</p>
+            </div>
+            <div className="px-6 pb-6">
+              <button onClick={() => setAlertModal(null)} className="w-full px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-colors">
+                OK
               </button>
             </div>
           </div>

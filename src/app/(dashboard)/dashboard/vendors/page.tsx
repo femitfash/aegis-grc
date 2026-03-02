@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { ConfirmModal, AlertModal } from "@/shared/components/modals";
 
 interface Vendor {
   id: string;
@@ -82,6 +83,8 @@ export default function VendorsPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  const [alertModal, setAlertModal] = useState<{ title: string; message: string } | null>(null);
 
   const fetchVendors = useCallback(async () => {
     setLoading(true);
@@ -155,16 +158,22 @@ export default function VendorsPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/vendors/${id}`, { method: "DELETE" });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
-      setExpandedId(null);
-      await fetchVendors();
-    } catch (err) { alert(err instanceof Error ? err.message : "Failed to delete"); }
-    finally { setDeleting(false); }
+  function handleDelete(id: string, name: string) {
+    setConfirmModal({
+      title: "Delete Vendor",
+      message: `Delete "${name}"? This cannot be undone.`,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        setDeleting(true);
+        try {
+          const res = await fetch(`/api/vendors/${id}`, { method: "DELETE" });
+          if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+          setExpandedId(null);
+          await fetchVendors();
+        } catch (err) { setAlertModal({ title: "Error", message: err instanceof Error ? err.message : "Failed to delete" }); }
+        finally { setDeleting(false); }
+      },
+    });
   }
 
   return (
@@ -412,6 +421,12 @@ export default function VendorsPage() {
             </form>
           </div>
         </div>
+      )}
+      {confirmModal && (
+        <ConfirmModal title={confirmModal.title} message={confirmModal.message} confirmLabel="Delete" confirmVariant="danger" onConfirm={confirmModal.onConfirm} onCancel={() => setConfirmModal(null)} />
+      )}
+      {alertModal && (
+        <AlertModal title={alertModal.title} message={alertModal.message} onClose={() => setAlertModal(null)} />
       )}
     </div>
   );

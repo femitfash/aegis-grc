@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { ConfirmModal } from "@/shared/components/modals";
 
 interface Risk {
   id: string;     // human-readable risk_id (RISK-XXXXX)
@@ -269,6 +270,7 @@ function RiskControlPanel({
   const [showEditForm, setShowEditForm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
   const fetchLinked = useCallback(async () => {
     setLoadingControls(true);
@@ -320,19 +322,25 @@ function RiskControlPanel({
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm(`Delete risk "${risk.title}"? This cannot be undone.`)) return;
-    setDeleting(true);
-    setDeleteError("");
-    try {
-      const res = await fetch(`/api/risks/${risk.dbId}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || data.error || "Failed to delete");
-      onDeleted();
-    } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Failed to delete");
-      setDeleting(false);
-    }
+  const handleDelete = () => {
+    setConfirmModal({
+      title: "Delete Risk",
+      message: `Delete risk "${risk.title}"? This cannot be undone.`,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        setDeleting(true);
+        setDeleteError("");
+        try {
+          const res = await fetch(`/api/risks/${risk.dbId}`, { method: "DELETE" });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || data.error || "Failed to delete");
+          onDeleted();
+        } catch (err) {
+          setDeleteError(err instanceof Error ? err.message : "Failed to delete");
+          setDeleting(false);
+        }
+      },
+    });
   };
 
   const linkedIds = new Set(linkedControls.map((c) => c.controlId));
@@ -343,6 +351,7 @@ function RiskControlPanel({
   };
 
   return (
+  <>
     <tr>
       <td colSpan={10} className="p-0">
         <div className="bg-muted/20 border-b px-6 py-4 space-y-4">
@@ -502,6 +511,10 @@ function RiskControlPanel({
         </div>
       </td>
     </tr>
+    {confirmModal && (
+      <ConfirmModal title={confirmModal.title} message={confirmModal.message} confirmLabel="Delete" confirmVariant="danger" onConfirm={confirmModal.onConfirm} onCancel={() => setConfirmModal(null)} />
+    )}
+  </>
   );
 }
 

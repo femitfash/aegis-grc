@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { SKILL_CATALOG, SCHEDULE_LABELS } from "@/shared/lib/agents/skills";
+import { ConfirmModal } from "@/shared/components/modals";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -374,9 +375,11 @@ export default function AgentsPage() {
   const [approvingTaskId, setApprovingTaskId] = useState<string | null>(null);
   const [decliningTaskId, setDecliningTaskId] = useState<string | null>(null);
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [editingInstructions, setEditingInstructions] = useState<Record<string, string>>({});
   const [editingSchedule, setEditingSchedule] = useState<Record<string, string>>({});
   const [savingAgentId, setSavingAgentId] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; confirmLabel?: string; confirmVariant?: "danger" | "primary"; onConfirm: () => void } | null>(null);
 
   const isAdminOrOwner = userRole === null || userRole === "owner" || userRole === "admin";
   const canCreateAgents = plan === "enterprise";
@@ -490,18 +493,28 @@ export default function AgentsPage() {
     }
   };
 
-  const handleDeleteAgent = async (agent: Agent) => {
-    if (!confirm(`Delete agent "${agent.name}"? This cannot be undone.`)) return;
-    setDeletingAgentId(agent.id);
-    try {
-      const res = await fetch(`/api/agents/${agent.id}`, { method: "DELETE" });
-      if (!res.ok) { const d = await res.json() as { error?: string }; throw new Error(d.error); }
-      await fetchAgents();
-    } catch (err) {
-      setActionErrors((e) => ({ ...e, [agent.id]: err instanceof Error ? err.message : "Failed" }));
-    } finally {
-      setDeletingAgentId(null);
-    }
+  const handleDeleteAgent = (agent: Agent) => {
+    // Don't allow deleting the default agent
+    if (agent.agent_type?.is_default) return;
+    setConfirmModal({
+      title: "Delete Agent",
+      message: `Delete agent "${agent.name}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+      confirmVariant: "danger",
+      onConfirm: async () => {
+        setConfirmModal(null);
+        setDeletingAgentId(agent.id);
+        try {
+          const res = await fetch(`/api/agents/${agent.id}`, { method: "DELETE" });
+          if (!res.ok) { const d = await res.json() as { error?: string }; throw new Error(d.error); }
+          await fetchAgents();
+        } catch (err) {
+          setActionErrors((e) => ({ ...e, [agent.id]: err instanceof Error ? err.message : "Failed" }));
+        } finally {
+          setDeletingAgentId(null);
+        }
+      },
+    });
   };
 
   const handleSaveAgent = async (agent: Agent) => {
@@ -527,19 +540,27 @@ export default function AgentsPage() {
     }
   };
 
-  const handleDeleteType = async (type: AgentType) => {
+  const handleDeleteType = (type: AgentType) => {
     if (type.is_default) return;
-    if (!confirm(`Delete agent type "${type.name}"? Agents using this type will also be removed.`)) return;
-    setDeletingTypeId(type.id);
-    try {
-      const res = await fetch(`/api/agent-types/${type.id}`, { method: "DELETE" });
-      if (!res.ok) { const d = await res.json() as { error?: string }; throw new Error(d.error); }
-      await fetchTypes();
-    } catch (err) {
-      setActionErrors((e) => ({ ...e, [type.id]: err instanceof Error ? err.message : "Failed" }));
-    } finally {
-      setDeletingTypeId(null);
-    }
+    setConfirmModal({
+      title: "Delete Agent Type",
+      message: `Delete agent type "${type.name}"? Agents using this type will also be removed.`,
+      confirmLabel: "Delete",
+      confirmVariant: "danger",
+      onConfirm: async () => {
+        setConfirmModal(null);
+        setDeletingTypeId(type.id);
+        try {
+          const res = await fetch(`/api/agent-types/${type.id}`, { method: "DELETE" });
+          if (!res.ok) { const d = await res.json() as { error?: string }; throw new Error(d.error); }
+          await fetchTypes();
+        } catch (err) {
+          setActionErrors((e) => ({ ...e, [type.id]: err instanceof Error ? err.message : "Failed" }));
+        } finally {
+          setDeletingTypeId(null);
+        }
+      },
+    });
   };
 
   // ── Task actions ──
@@ -568,6 +589,28 @@ export default function AgentsPage() {
     } finally {
       setDecliningTaskId(null);
     }
+  };
+
+  const handleDeleteTask = (task: AgentTask) => {
+    setConfirmModal({
+      title: "Delete Task",
+      message: `Delete task "${task.title}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+      confirmVariant: "danger",
+      onConfirm: async () => {
+        setConfirmModal(null);
+        setDeletingTaskId(task.id);
+        try {
+          const res = await fetch(`/api/agent-tasks/${task.id}`, { method: "DELETE" });
+          if (!res.ok) { const d = await res.json() as { error?: string }; throw new Error(d.error); }
+          await fetchTasks();
+        } catch (err) {
+          setActionErrors((e) => ({ ...e, [task.id]: err instanceof Error ? err.message : "Failed to delete" }));
+        } finally {
+          setDeletingTaskId(null);
+        }
+      },
+    });
   };
 
   // ── Filtered tasks ──
@@ -829,13 +872,17 @@ export default function AgentsPage() {
                                 >
                                   {togglingAgentId === agent.id ? "…" : agent.status === "active" ? "Suspend" : "Activate"}
                                 </button>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleDeleteAgent(agent); }}
-                                  disabled={deletingAgentId === agent.id}
-                                  className="px-2.5 py-1 text-xs border border-red-200 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-40"
-                                >
-                                  {deletingAgentId === agent.id ? "…" : "Delete"}
-                                </button>
+                                {agent.agent_type?.is_default ? (
+                                  <span className="px-2.5 py-1 text-xs text-muted-foreground">Default</span>
+                                ) : (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteAgent(agent); }}
+                                    disabled={deletingAgentId === agent.id}
+                                    className="px-2.5 py-1 text-xs border border-red-200 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-40"
+                                  >
+                                    {deletingAgentId === agent.id ? "…" : "Delete"}
+                                  </button>
+                                )}
                               </div>
                             </td>
                           )}
@@ -1049,24 +1096,33 @@ export default function AgentsPage() {
                         <td className="px-4 py-3 text-muted-foreground text-xs">{formatDate(task.created_at)}</td>
                         {isAdminOrOwner && (
                           <td className="px-4 py-3">
-                            {task.status === "pending_approval" && (
-                              <div className="flex items-center justify-end gap-2">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleApprove(task); }}
-                                  disabled={approvingTaskId === task.id}
-                                  className="px-2.5 py-1 text-xs bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-40"
-                                >
-                                  {approvingTaskId === task.id ? "…" : "Approve"}
-                                </button>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleDecline(task); }}
-                                  disabled={decliningTaskId === task.id}
-                                  className="px-2.5 py-1 text-xs border border-red-200 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-40"
-                                >
-                                  {decliningTaskId === task.id ? "…" : "Decline"}
-                                </button>
-                              </div>
-                            )}
+                            <div className="flex items-center justify-end gap-2">
+                              {task.status === "pending_approval" && (
+                                <>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleApprove(task); }}
+                                    disabled={approvingTaskId === task.id}
+                                    className="px-2.5 py-1 text-xs bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-40"
+                                  >
+                                    {approvingTaskId === task.id ? "…" : "Approve"}
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDecline(task); }}
+                                    disabled={decliningTaskId === task.id}
+                                    className="px-2.5 py-1 text-xs border border-red-200 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-40"
+                                  >
+                                    {decliningTaskId === task.id ? "…" : "Decline"}
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteTask(task); }}
+                                disabled={deletingTaskId === task.id}
+                                className="px-2.5 py-1 text-xs border border-red-200 text-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40"
+                              >
+                                {deletingTaskId === task.id ? "…" : "Delete"}
+                              </button>
+                            </div>
                           </td>
                         )}
                       </tr>
@@ -1118,6 +1174,16 @@ export default function AgentsPage() {
       )}
       {showNewAgent && isAdminOrOwner && canCreateAgents && (
         <NewAgentModal agentTypes={agentTypes} onClose={() => setShowNewAgent(false)} onCreated={() => { fetchAgents(); }} />
+      )}
+      {confirmModal && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmLabel={confirmModal.confirmLabel}
+          confirmVariant={confirmModal.confirmVariant}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
       )}
     </div>
   );

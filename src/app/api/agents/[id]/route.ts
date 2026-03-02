@@ -129,12 +129,24 @@ export async function DELETE(_request: NextRequest, { params }: RouteContext) {
 
     const { data: existing } = await admin
       .from("agents")
-      .select("id")
+      .select("id, agent_type_id")
       .eq("id", id)
       .eq("organization_id", userData.organization_id)
       .single();
 
     if (!existing) return Response.json({ error: "Agent not found" }, { status: 404 });
+
+    // Check if this is the default agent (attached to the default agent type)
+    if (existing.agent_type_id) {
+      const { data: agentType } = await admin
+        .from("agent_types")
+        .select("is_default")
+        .eq("id", existing.agent_type_id)
+        .single();
+      if (agentType?.is_default) {
+        return Response.json({ error: "The default agent cannot be deleted" }, { status: 403 });
+      }
+    }
 
     // Soft delete
     const { error } = await admin

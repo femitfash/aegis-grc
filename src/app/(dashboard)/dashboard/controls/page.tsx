@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { ConfirmModal } from "@/shared/components/modals";
 
 interface Control {
   id: string;
@@ -101,6 +102,7 @@ function EditControlPanel({
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,23 +132,30 @@ function EditControlPanel({
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm(`Delete control "${control.title}"? This cannot be undone.`)) return;
-    setDeleting(true);
-    setDeleteError("");
-    try {
-      const res = await fetch(`/api/controls/${control.id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || data.error || "Failed to delete");
-      onSaved();
-      onClose();
-    } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Failed to delete");
-      setDeleting(false);
-    }
+  const handleDelete = () => {
+    setConfirmModal({
+      title: "Delete Control",
+      message: `Delete control "${control.title}"? This cannot be undone.`,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        setDeleting(true);
+        setDeleteError("");
+        try {
+          const res = await fetch(`/api/controls/${control.id}`, { method: "DELETE" });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || data.error || "Failed to delete");
+          onSaved();
+          onClose();
+        } catch (err) {
+          setDeleteError(err instanceof Error ? err.message : "Failed to delete");
+          setDeleting(false);
+        }
+      },
+    });
   };
 
   return (
+  <>
     <tr>
       <td colSpan={9} className="p-0">
         <div className="bg-muted/20 border-b px-6 py-4">
@@ -250,6 +259,10 @@ function EditControlPanel({
         </div>
       </td>
     </tr>
+    {confirmModal && (
+      <ConfirmModal title={confirmModal.title} message={confirmModal.message} confirmLabel="Delete" confirmVariant="danger" onConfirm={confirmModal.onConfirm} onCancel={() => setConfirmModal(null)} />
+    )}
+  </>
   );
 }
 

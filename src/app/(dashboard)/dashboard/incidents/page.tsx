@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { ConfirmModal, AlertModal } from "@/shared/components/modals";
 
 interface Incident {
   id: string;
@@ -75,6 +76,8 @@ export default function IncidentsPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  const [alertModal, setAlertModal] = useState<{ title: string; message: string } | null>(null);
 
   const fetchIncidents = useCallback(async () => {
     setLoading(true);
@@ -154,16 +157,22 @@ export default function IncidentsPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDelete(id: string, title: string) {
-    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/incidents/${id}`, { method: "DELETE" });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
-      setExpandedId(null);
-      await fetchIncidents();
-    } catch (err) { alert(err instanceof Error ? err.message : "Failed to delete"); }
-    finally { setDeleting(false); }
+  function handleDelete(id: string, title: string) {
+    setConfirmModal({
+      title: "Delete Incident",
+      message: `Delete "${title}"? This cannot be undone.`,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        setDeleting(true);
+        try {
+          const res = await fetch(`/api/incidents/${id}`, { method: "DELETE" });
+          if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+          setExpandedId(null);
+          await fetchIncidents();
+        } catch (err) { setAlertModal({ title: "Error", message: err instanceof Error ? err.message : "Failed to delete" }); }
+        finally { setDeleting(false); }
+      },
+    });
   }
 
   return (
@@ -394,6 +403,12 @@ export default function IncidentsPage() {
             </form>
           </div>
         </div>
+      )}
+      {confirmModal && (
+        <ConfirmModal title={confirmModal.title} message={confirmModal.message} confirmLabel="Delete" confirmVariant="danger" onConfirm={confirmModal.onConfirm} onCancel={() => setConfirmModal(null)} />
+      )}
+      {alertModal && (
+        <AlertModal title={alertModal.title} message={alertModal.message} onClose={() => setAlertModal(null)} />
       )}
     </div>
   );
