@@ -43,8 +43,8 @@ export async function GET(_request: NextRequest) {
         .insert({
           organization_id: userData.organization_id,
           name: "GRC Agent",
-          description: "Default agent with web search, risk analysis, and compliance checking skills.",
-          skills: ["web_search", "risk_analysis", "compliance_check", "send_report", "create_risk", "update_requirement"],
+          description: "Generalist GRC agent with all available skills — monitors compliance, analyzes risks, creates policies, and more.",
+          skills: SKILL_CATALOG.map((s) => s.id),
           is_default: true,
           created_by: user.id,
         })
@@ -80,6 +80,17 @@ export async function POST(request: NextRequest) {
     }
     if (!["owner", "admin"].includes(userData.role ?? "")) {
       return Response.json({ error: "Only owners and admins can create agent types" }, { status: 403 });
+    }
+
+    // Only Enterprise plan can create custom agent types
+    const { data: sub } = await admin
+      .from("subscriptions")
+      .select("plan")
+      .eq("organization_id", userData.organization_id)
+      .single();
+
+    if (sub?.plan !== "enterprise") {
+      return Response.json({ error: "Custom agent types require an Enterprise plan" }, { status: 403 });
     }
 
     const body = await request.json();

@@ -316,6 +316,7 @@ function NewAgentModal({ agentTypes, onClose, onCreated }: { agentTypes: AgentTy
 export default function AgentsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("agents");
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [plan, setPlan] = useState<string>("builder");
   const [agentUsage, setAgentUsage] = useState<{
     allowed: boolean;
     reason?: string;
@@ -363,14 +364,16 @@ export default function AgentsPage() {
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
 
   const isAdminOrOwner = userRole === null || userRole === "owner" || userRole === "admin";
+  const canCreateAgents = plan === "enterprise";
 
   // ── Fetchers ──
 
   const fetchRole = useCallback(async () => {
     try {
-      const [orgRes, usageRes] = await Promise.all([
+      const [orgRes, usageRes, subRes] = await Promise.all([
         fetch("/api/settings/organization"),
         fetch("/api/settings/agent-usage"),
+        fetch("/api/billing/subscription"),
       ]);
       const orgData = await orgRes.json() as { user_role?: string };
       if (orgData.user_role) setUserRole(orgData.user_role);
@@ -378,6 +381,9 @@ export default function AgentsPage() {
 
       const usage = await usageRes.json();
       setAgentUsage(usage);
+
+      const subData = await subRes.json() as { subscription?: { plan?: string } };
+      if (subData.subscription?.plan) setPlan(subData.subscription.plan);
     } catch {
       setUserRole("viewer");
       setAgentUsage({ allowed: false, runCount: 0, trialStartedAt: null, trialExpired: false, trialDaysRemaining: 0, freeActionsRemaining: 0, creditsRemaining: 0, hasUnlimitedPlan: false });
@@ -559,14 +565,36 @@ export default function AgentsPage() {
         {isAdminOrOwner && (
           <div className="flex gap-2">
             {activeTab === "types" && (
-              <button onClick={() => setShowNewType(true)} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
-                + New Type
-              </button>
+              <div className="relative group">
+                <button
+                  onClick={() => canCreateAgents && setShowNewType(true)}
+                  disabled={!canCreateAgents}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium ${canCreateAgents ? "bg-primary text-primary-foreground hover:opacity-90" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
+                >
+                  + New Type
+                </button>
+                {!canCreateAgents && (
+                  <div className="absolute right-0 top-full mt-2 w-56 px-3 py-2 rounded-lg bg-popover border shadow-lg text-xs text-popover-foreground opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                    Upgrade to Enterprise to create custom agents
+                  </div>
+                )}
+              </div>
             )}
             {activeTab === "agents" && (
-              <button onClick={() => setShowNewAgent(true)} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
-                + New Agent
-              </button>
+              <div className="relative group">
+                <button
+                  onClick={() => canCreateAgents && setShowNewAgent(true)}
+                  disabled={!canCreateAgents}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium ${canCreateAgents ? "bg-primary text-primary-foreground hover:opacity-90" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
+                >
+                  + New Agent
+                </button>
+                {!canCreateAgents && (
+                  <div className="absolute right-0 top-full mt-2 w-56 px-3 py-2 rounded-lg bg-popover border shadow-lg text-xs text-popover-foreground opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                    Upgrade to Enterprise to create custom agents
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -668,9 +696,20 @@ export default function AgentsPage() {
               <p className="font-medium">No agents yet</p>
               <p className="text-sm mt-1">Create an agent to start automating GRC tasks on a schedule.</p>
               {isAdminOrOwner && (
-                <button onClick={() => setShowNewAgent(true)} className="mt-4 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
-                  + Create your first agent
-                </button>
+                <div className="relative group inline-block">
+                  <button
+                    onClick={() => canCreateAgents && setShowNewAgent(true)}
+                    disabled={!canCreateAgents}
+                    className={`mt-4 px-4 py-2 rounded-lg text-sm font-medium ${canCreateAgents ? "bg-primary text-primary-foreground hover:opacity-90" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
+                  >
+                    + Create your first agent
+                  </button>
+                  {!canCreateAgents && (
+                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-56 px-3 py-2 rounded-lg bg-popover border shadow-lg text-xs text-popover-foreground opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                      Upgrade to Enterprise to create custom agents
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -949,10 +988,10 @@ export default function AgentsPage() {
       )}
 
       {/* Modals */}
-      {showNewType && isAdminOrOwner && (
+      {showNewType && isAdminOrOwner && canCreateAgents && (
         <NewAgentTypeModal onClose={() => setShowNewType(false)} onCreated={() => { fetchTypes(); }} />
       )}
-      {showNewAgent && isAdminOrOwner && (
+      {showNewAgent && isAdminOrOwner && canCreateAgents && (
         <NewAgentModal agentTypes={agentTypes} onClose={() => setShowNewAgent(false)} onCreated={() => { fetchAgents(); }} />
       )}
     </div>

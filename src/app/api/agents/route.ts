@@ -32,7 +32,37 @@ export async function GET(_request: NextRequest) {
 
     if (error) return Response.json({ agents: [], error: error.message }, { status: 500 });
 
-    return Response.json({ agents: data ?? [] });
+    let agents = data ?? [];
+
+    // Auto-provision a default GRC Agent instance if none exist
+    if (agents.length === 0) {
+      const { data: defaultType } = await admin
+        .from("agent_types")
+        .select("id")
+        .eq("organization_id", userData.organization_id)
+        .eq("is_default", true)
+        .single();
+
+      if (defaultType) {
+        const { data: newAgent } = await admin
+          .from("agents")
+          .insert({
+            organization_id: userData.organization_id,
+            agent_type_id: defaultType.id,
+            name: "GRC Agent",
+            description: "Your default generalist GRC agent. Monitors compliance, analyzes risks, and checks frameworks.",
+            schedule: "manual",
+            config: {},
+            created_by: user.id,
+          })
+          .select("*, agent_type:agent_types(id, name, skills, is_default)")
+          .single();
+
+        if (newAgent) agents = [newAgent];
+      }
+    }
+
+    return Response.json({ agents });
   } catch (err) {
     return Response.json({ agents: [], error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
@@ -57,6 +87,17 @@ export async function POST(request: NextRequest) {
     if (!userData?.organization_id) return Response.json({ error: "No organization found" }, { status: 400 });
     if (!["owner", "admin"].includes(userData.role ?? "")) {
       return Response.json({ error: "Only owners and admins can create agents" }, { status: 403 });
+    }
+
+    // Only Enterprise plan can create custom agents
+    const { data: sub } = await admin
+      .from("subscriptions")
+      .select("plan")
+      .eq("organization_id", userData.organization_id)
+      .single();
+
+    if (sub?.plan !== "enterprise") {
+      return Response.json({ error: "Custom agent creation requires an Enterprise plan" }, { status: 403 });
     }
 
     const body = await request.json();
